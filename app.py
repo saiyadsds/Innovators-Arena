@@ -202,7 +202,6 @@ def index():
         "index.html",
         year=datetime.now().year,
         team_name="CyberGuardians",
-        repo_url="https://github.com/cyberguardians/innovators-arena-2026",
         version="v3.0.0-prod"
     )
 
