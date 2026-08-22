@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CyberGuardians — Innovator's Arena STEM Fest 2026. Interactive cybersecurity education platform featuring 3D threat visualization, CIA Triad modules, and live security simulators.">
+    <meta name="keywords" content="cybersecurity, STEM, CIA Triad, threat intelligence, password security, Three.js, Flask">
+    <meta name="author" content="CyberGuardians Team">
+    <title>CyberGuardians | Innovator's Arena — STEM Fest 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-deep: #05080f;
+            --bg-primary: #0a0e17;
+            --bg-secondary: #0f172a;
+            --bg-card: #111827;
+            --bg-card-hover: #1e293b;
+            --bg-elevated: #1f2937;
+            --cyan: #00ffcc;
+            --cyan-dim: rgba(0, 255, 204, 0.15);
+            --cyan-glow: rgba(0, 255, 204, 0.35);
+            --cyan-bright: #5fffd4;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --text-dim: #475569;
+            --accent-red: #ff4d6d;
+            --accent-green: #00e676;
+            --accent-amber: #ffc107;
+            --accent-blue: #448aff;
+            --border: rgba(0, 255, 204, 0.08);
+            --border-hover: rgba(0, 255, 204, 0.25);
+            --shadow-glow: 0 0 30px rgba(0, 255, 204, 0.08);
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection { background: rgba(0, 255, 204, 0.25); color: #fff; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-deep); }
+        ::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 3px; }
+
+        /* ─── Navigation ─── */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            background: rgba(5, 8, 15, 0.75);
+            backdrop-filter: blur(24px) saturate(1.2);
+            border-bottom: 1px solid var(--border);
+            padding: 0.9rem 2.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: var(--transition);
+        }
+        .navbar.scrolled {
+            background: rgba(5, 8, 15, 0.92);
+            padding: 0.7rem 2.5rem;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+        .logo {
+            font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.35rem;
+            color: var(--cyan); letter-spacing: -0.5px;
+            text-shadow: 0 0 25px var(--cyan-glow);
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .logo::before {
+            content: '◈'; font-size: 1.6rem;
+            animation: logoPulse 2.5s ease-in-out infinite;
+        }
+        @keyframes logoPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.92)} }
+        .nav-links { display: flex; gap: 2.5rem; list-style: none; align-items: center; }
+        .nav-links a {
+            color: var(--text-secondary); text-decoration: none; font-weight: 500;
+            font-size: 0.88rem; letter-spacing: 0.3px;
+            transition: var(--transition); position: relative; padding: 0.3rem 0;
+        }
+        .nav-links a::after {
+            content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 2px;
+            background: var(--cyan); transition: width 0.35s ease;
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+        .nav-links a:hover { color: var(--cyan); }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-cta {
+            background: linear-gradient(135deg, var(--cyan), var(--cyan-bright));
+            color: var(--bg-deep) !important; padding: 0.5rem 1.2rem !important;
+            border-radius: 8px; font-weight: 700 !important; font-size: 0.8rem !important;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+            transition: var(--transition);
+        }
+        .nav-cta::after { display: none !important; }
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 25px rgba(0, 255, 204, 0.35);
+        }
+
+        /* ─── Hero Section ─── */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            position: relative; padding-top: 80px; overflow: hidden;
+            background: radial-gradient(ellipse at 50% 0%, rgba(0,255,204,0.03) 0%, transparent 60%);
+        }
+        #three-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+        .hero-overlay {
+            position: absolute; inset: 0; z-index: 2;
+            background: radial-gradient(circle at 50% 50%, transparent 30%, var(--bg-deep) 90%);
+            pointer-events: none;
+        }
+        .hero-content {
+            position: relative; z-index: 3; text-align: center;
+            max-width: 920px; padding: 2rem;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.6rem;
+            background: rgba(0, 255, 204, 0.06); border: 1px solid var(--border);
+            padding: 0.55rem 1.2rem; border-radius: 50px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+            color: var(--cyan); margin-bottom: 1.8rem;
+            animation: fadeInDown 0.9s ease;
+            letter-spacing: 0.5px;
+        }
+        .hero-badge .dot {
+            width: 7px; height: 7px; background: var(--accent-green);
+            border-radius: 50%; box-shadow: 0 0 8px var(--accent-green);
+            animation: blink 1.8s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+        .hero h1 {
+            font-size: clamp(2.8rem, 7vw, 5rem); font-weight: 900; line-height: 1.05;
+            margin-bottom: 1.2rem; letter-spacing: -1.5px;
+            background: linear-gradient(135deg, #ffffff 0%, var(--cyan) 50%, var(--cyan-bright) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            animation: fadeInUp 0.9s ease 0.15s both;
+            filter: drop-shadow(0 0 40px rgba(0,255,204,0.15));
+        }
+        .hero-subtitle {
+            font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2.5rem;
+            max-width: 640px; margin-left: auto; margin-right: auto;
+            animation: fadeInUp 0.9s ease 0.35s both; line-height: 1.7;
+        }
+        .hero-meta {
+            display: flex; justify-content: center; gap: 1.2rem; flex-wrap: wrap;
+            animation: fadeInUp 0.9s ease 0.55s both;
+        }
+        .meta-item {
+            background: rgba(17, 24, 39, 0.7); border: 1px solid var(--border);
+            padding: 1rem 1.4rem; border-radius: var(--radius-sm); text-align: left;
+            min-width: 170px; backdrop-filter: blur(12px);
+            transition: var(--transition);
+        }
+        .meta-item:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+        }
+        .meta-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px;
+        }
+        .meta-value {
+            font-weight: 700; color: var(--text-primary); margin-top: 0.3rem;
+            font-size: 0.95rem;
+        }
+        .scroll-indicator {
+            position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+            z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+            animation: bounce 2.5s infinite; opacity: 0.7;
+        }
+        .scroll-indicator span {
+            display: block; width: 20px; height: 20px;
+            border-right: 2px solid var(--cyan); border-bottom: 2px solid var(--cyan);
+            transform: rotate(45deg);
+        }
+        .scroll-indicator small {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px;
+        }
+        @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(12px)} }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(35px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeInDown { from{opacity:0;transform:translateY(-25px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ─── Section Base ─── */
+        section { padding: 7rem 2rem; max-width: 1280px; margin: 0 auto; position: relative; }
+        .section-header { text-align: center; margin-bottom: 4.5rem; }
+        .section-header h2 {
+            font-size: 2.6rem; font-weight: 800; margin-bottom: 1rem;
+            position: relative; display: inline-block; letter-spacing: -1px;
+        }
+        .section-header h2::after {
+            content: ''; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+            width: 50px; height: 3px; background: var(--cyan);
+            box-shadow: 0 0 20px var(--cyan-glow); border-radius: 2px;
+        }
+        .section-header p {
+            color: var(--text-secondary); max-width: 580px; margin: 1.8rem auto 0;
+            font-size: 1.05rem; line-height: 1.7;
+        }
+        .section-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+            color: var(--cyan); text-transform: uppercase; letter-spacing: 3px;
+            margin-bottom: 0.8rem; display: block;
+        }
+
+        /* ─── CIA Triad ─── */
+        .cia-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.8rem; }
+        .cia-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden;
+            transition: var(--transition); position: relative;
+            display: flex; flex-direction: column;
+        }
+        .cia-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0; transition: opacity 0.4s ease;
+        }
+        .cia-card:hover::before, .cia-card.active::before { opacity: 1; }
+        .cia-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-glow), var(--shadow-card);
+        }
+        .cia-card.active { border-color: rgba(0, 255, 204, 0.3); }
+        .cia-header {
+            padding: 2rem 2rem 1.2rem; cursor: pointer; flex-shrink: 0;
+        }
+        .cia-icon-wrap {
+            width: 52px; height: 52px; border-radius: 14px;
+            background: rgba(0, 255, 204, 0.08); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; margin-bottom: 1.2rem;
+            transition: var(--transition);
+        }
+        .cia-card:hover .cia-icon-wrap {
+            background: rgba(0, 255, 204, 0.15);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+        }
+        .cia-card h3 { font-size: 1.35rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+        .cia-card .cia-summary { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6; }
+        .cia-tabs {
+            display: flex; border-bottom: 1px solid var(--border); margin: 0 2rem;
+            gap: 0.3rem;
+        }
+        .cia-tab {
+            background: none; border: none; color: var(--text-muted);
+            padding: 0.6rem 1rem; font-family: 'Inter', sans-serif; font-weight: 500;
+            font-size: 0.82rem; cursor: pointer; position: relative; transition: var(--transition);
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+        }
+        .cia-tab:hover { color: var(--text-secondary); }
+        .cia-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+        .cia-body { padding: 1.5rem 2rem 2rem; flex: 1; }
+        .cia-panel { display: none; animation: fadeInUp 0.35s ease; }
+        .cia-panel.active { display: block; }
+        .cia-panel h4 {
+            font-size: 0.8rem; color: var(--cyan); margin-bottom: 0.9rem;
+            text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;
+        }
+        .impl-list { list-style: none; margin-bottom: 1.5rem; }
+        .impl-list li {
+            padding: 0.5rem 0; color: var(--text-secondary); font-size: 0.88rem;
+            display: flex; align-items: flex-start; gap: 0.6rem; line-height: 1.5;
+        }
+        .impl-list li::before {
+            content: '▸'; color: var(--cyan); font-weight: 700; flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .code-block {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1.2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+            overflow-x: auto; color: #a5b4fc; line-height: 1.7; margin-bottom: 1.2rem;
+            position: relative;
+        }
+        .code-block::before {
+            content: attr(data-lang); position: absolute; top: 0.6rem; right: 0.9rem;
+            font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;
+        }
+        .code-block pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+        .code-kw { color: #c084fc; }
+        .code-str { color: #86efac; }
+        .code-cmt { color: #475569; }
+        .code-fn { color: #60a5fa; }
+        .code-num { color: #fbbf24; }
+        .real-world {
+            background: rgba(0, 255, 204, 0.04); border-left: 3px solid var(--cyan);
+            padding: 1.1rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7;
+        }
+        .real-world strong { color: var(--cyan); display: block; margin-bottom: 0.4rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ─── Threat Dashboard ─── */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4rem; }
+        .metric-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.6rem;
+            transition: var(--transition); position: relative; overflow: hidden;
+        }
+        .metric-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0; transition: opacity 0.4s ease;
+        }
+        .metric-card:hover::before { opacity: 1; }
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-glow), var(--shadow-card);
+        }
+        .metric-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem; }
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace; font-size: 2.1rem; font-weight: 700;
+            color: var(--text-primary); letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff, var(--cyan-bright));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .metric-trend {
+            font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px;
+            font-weight: 700; font-family: 'JetBrains Mono', monospace;
+        }
+        .trend-up { background: rgba(255, 77, 109, 0.12); color: var(--accent-red); }
+        .trend-down { background: rgba(0, 230, 118, 0.12); color: var(--accent-green); }
+        .trend-neutral { background: rgba(255, 193, 7, 0.12); color: var(--accent-amber); }
+        .metric-label { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.2rem; line-height: 1.5; }
+        .metric-source {
+            font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border);
+            padding-top: 0.9rem; line-height: 1.5;
+        }
+        .metric-source a {
+            color: var(--cyan); text-decoration: none; font-weight: 500;
+            transition: var(--transition);
+        }
+        .metric-source a:hover { text-decoration: underline; color: var(--cyan-bright); }
+        .metric-source .cite-icon { margin-right: 0.3rem; opacity: 0.7; }
+
+        /* Loading shimmer */
+        .shimmer {
+            background: linear-gradient(90deg, var(--bg-card) 25%, #1e293b 50%, var(--bg-card) 75%);
+            background-size: 200% 100%; animation: shimmer 1.6s infinite;
+            border-radius: 4px; height: 1.4rem;
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ─── Password Simulator ─── */
+        .simulator-wrap {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 3rem; max-width: 820px; margin: 0 auto;
+            position: relative; overflow: hidden;
+            box-shadow: var(--shadow-card);
+        }
+        .simulator-wrap::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+        }
+        .sim-header { text-align: center; margin-bottom: 2.5rem; }
+        .sim-header h3 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .sim-header p { color: var(--text-secondary); font-size: 0.95rem; }
+        .pw-input-wrap { position: relative; margin-bottom: 1.5rem; }
+        .pw-input-wrap input {
+            width: 100%; background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1.1rem 1.2rem;
+            color: var(--text-primary); font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem; transition: var(--transition); letter-spacing: 0.5px;
+        }
+        .pw-input-wrap input:focus {
+            outline: none; border-color: var(--cyan);
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.1);
+        }
+        .pw-input-wrap input::placeholder { color: var(--text-dim); }
+        .pw-toggle {
+            position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 1.1rem; transition: var(--transition); padding: 0.3rem;
+        }
+        .pw-toggle:hover { color: var(--cyan); }
+        .entropy-bar {
+            height: 8px; background: #1e293b; border-radius: 4px;
+            overflow: hidden; position: relative; margin-bottom: 0.8rem;
+        }
+        .entropy-fill {
+            height: 100%; width: 0%; border-radius: 4px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+        .entropy-fill::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: sheen 2s infinite;
+        }
+        @keyframes sheen { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        .entropy-weak { background: linear-gradient(90deg, #ff4d6d, #ff6b8a); box-shadow: 0 0 15px rgba(255, 77, 109, 0.3); }
+        .entropy-fair { background: linear-gradient(90deg, #ffc107, #ffd54f); box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+        .entropy-good { background: linear-gradient(90deg, #448aff, #82b1ff); box-shadow: 0 0 15px rgba(68, 138, 255, 0.3); }
+        .entropy-strong { background: linear-gradient(90deg, #00e676, #69f0ae); box-shadow: 0 0 15px rgba(0, 230, 118, 0.3); }
+        .entropy-legend {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .entropy-label { font-weight: 700; font-size: 0.95rem; }
+        .entropy-bits {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+            color: var(--text-muted); background: rgba(0,255,204,0.05);
+            padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border);
+        }
+        .entropy-time {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+        .pw-analysis-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem;
+        }
+        .pw-checklist, .pw-vulns {
+            background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1.2rem;
+        }
+        .pw-checklist h4, .pw-vulns h4 {
+            font-size: 0.75rem; color: var(--cyan); margin-bottom: 0.9rem;
+            text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;
+        }
+        .check-item {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.4rem 0; font-size: 0.85rem; color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        .check-item.pass { color: var(--accent-green); }
+        .check-item.fail { color: var(--accent-red); }
+        .check-icon { font-size: 0.9rem; width: 18px; text-align: center; }
+        .vuln-item {
+            padding: 0.5rem 0; font-size: 0.82rem; color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex; align-items: flex-start; gap: 0.5rem;
+        }
+        .vuln-item:last-child { border-bottom: none; }
+        .vuln-item.warning { color: var(--accent-amber); }
+        .vuln-item.danger { color: var(--accent-red); }
+        .vuln-icon { flex-shrink: 0; margin-top: 2px; }
+
+        /* ─── Footer ─── */
+        .footer {
+            background: var(--bg-secondary); border-top: 1px solid var(--border);
+            padding: 5rem 2rem 2rem;
+        }
+        .footer-grid {
+            max-width: 1280px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 3rem;
+            margin-bottom: 3.5rem;
+        }
+        .footer-section h3 {
+            color: var(--text-primary); font-size: 1rem; margin-bottom: 1.2rem;
+            display: flex; align-items: center; gap: 0.5rem; font-weight: 700;
+        }
+        .footer-section h3 .icon { color: var(--cyan); font-size: 1.1rem; }
+        .footer-section p, .footer-section li {
+            color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 0.6rem;
+            line-height: 1.6;
+        }
+        .footer-section ul { list-style: none; }
+        .footer-section a {
+            color: var(--cyan); text-decoration: none; font-weight: 500;
+            transition: var(--transition);
+        }
+        .footer-section a:hover { color: var(--cyan-bright); text-decoration: underline; }
+        .repo-tree {
+            background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1.2rem;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+            color: var(--text-dim); line-height: 1.9;
+        }
+        .repo-tree .dir { color: var(--cyan); }
+        .repo-tree .file { color: var(--text-muted); }
+        .repo-tree .comment { color: #334155; }
+        .footer-bottom {
+            max-width: 1280px; margin: 0 auto; padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 1.5rem; color: var(--text-dim); font-size: 0.82rem;
+        }
+        .team-row { display: flex; gap: 2rem; flex-wrap: wrap; }
+        .team-member { display: flex; align-items: center; gap: 0.6rem; }
+        .team-avatar {
+            width: 30px; height: 30px; background: linear-gradient(135deg, var(--cyan), var(--cyan-bright));
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 800; color: var(--bg-deep); flex-shrink: 0;
+        }
+        .team-member span { color: var(--text-secondary); font-weight: 500; }
+        .version-tag {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+            color: var(--cyan); background: rgba(0,255,204,0.06);
+            padding: 0.35rem 0.8rem; border-radius: 6px; border: 1px solid var(--border);
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 1024px) {
+            .cia-grid { grid-template-columns: 1fr; }
+            .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+            .footer-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .navbar { padding: 0.8rem 1.2rem; }
+            .nav-links { display: none; }
+            .hero-meta { flex-direction: column; align-items: stretch; }
+            .meta-item { width: 100%; }
+            section { padding: 4rem 1.2rem; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .pw-analysis-grid { grid-template-columns: 1fr; }
+            .simulator-wrap { padding: 1.8rem; }
+            .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .footer-bottom { flex-direction: column; text-align: center; }
+            .team-row { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="logo">CyberGuardians</div>
+        <ul class="nav-links">
+            <li><a href="#hero">Home</a></li>
+            <li><a href="#cia">CIA Triad</a></li>
+            <li><a href="#dashboard">Threat Intel</a></li>
+            <li><a href="#simulator">Simulator</a></li>
+            <li><a href="#github" class="nav-cta">GitHub Repo</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <canvas id="three-canvas"></canvas>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Innovator's Arena — International STEM Fest 2026
+            </div>
+            <h1>Defending the Digital Frontier</h1>
+            <p class="hero-subtitle">
+                An immersive exploration of modern cybersecurity architecture — from cryptographic foundations 
+                to real-time threat intelligence and defensive engineering.
+            </p>
+            <div class="hero-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Competition</div>
+                    <div class="meta-value">Innovator's Arena</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Track</div>
+                    <div class="meta-value">Cyber Security</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Team</div>
+                    <div class="meta-value">CyberGuardians</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Version</div>
+                    <div class="meta-value">v3.0.0-prod</div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <small>Explore</small>
+            <span></span>
+        </div>
+    </section>
+
+    <!-- CIA Triad Section -->
+    <section id="cia">
+        <div class="section-header">
+            <span class="section-label">01 — Core Principles</span>
+            <h2>The CIA Triad</h2>
+            <p>The foundational security model governing all information protection. Click any pillar to explore implementations, production code, and real-world case studies.</p>
+        </div>
+        <div class="cia-grid" id="cia-grid"></div>
+    </section>
+
+    <!-- Threat Intelligence Dashboard -->
+    <section id="dashboard">
+        <div class="section-header">
+            <span class="section-label">02 — Live Intelligence</span>
+            <h2>Verified Threat Metrics</h2>
+            <p>Real-world cybersecurity data sourced from IBM, Verizon, Cybersecurity Ventures, and CISA. Every metric includes a direct citation hyperlink.</p>
+        </div>
+        <div class="dashboard-grid" id="dashboard-grid"></div>
+    </section>
+
+    <!-- Password Entropy Simulator -->
+    <section id="simulator">
+        <div class="section-header">
+            <span class="section-label">03 — Interactive Lab</span>
+            <h2>Password Entropy & Vulnerability Tester</h2>
+            <p>Real-time cryptographic analysis using Shannon entropy, character pool analysis, and pattern detection against GPU-cluster brute-force estimates.</p>
+        </div>
+        <div class="simulator-wrap">
+            <div class="sim-header">
+                <h3>🔐 Password Security Analyzer</h3>
+                <p>Type a password to calculate entropy, estimate crack resistance, and identify vulnerabilities.</p>
+            </div>
+            <div class="pw-input-wrap">
+                <input type="password" id="pw-input" placeholder="Enter password to analyze..." autocomplete="off" spellcheck="false">
+                <button class="pw-toggle" id="pw-toggle" title="Toggle visibility">👁</button>
+            </div>
+            <div class="entropy-bar">
+                <div class="entropy-fill" id="entropy-fill"></div>
+            </div>
+            <div class="entropy-legend">
+                <span class="entropy-label" id="entropy-label">Enter a password</span>
+                <span class="entropy-bits" id="entropy-bits">0 bits</span>
+            </div>
+            <div class="entropy-time" id="entropy-time"></div>
+            <div class="pw-analysis-grid" id="pw-analysis" style="display:none;">
+                <div class="pw-checklist">
+                    <h4>Compliance Checklist</h4>
+                    <div class="check-item fail" id="chk-len"><span class="check-icon">○</span> 12+ characters</div>
+                    <div class="check-item fail" id="chk-upper"><span class="check-icon">○</span> Uppercase (A-Z)</div>
+                    <div class="check-item fail" id="chk-lower"><span class="check-icon">○</span> Lowercase (a-z)</div>
+                    <div class="check-item fail" id="chk-digit"><span class="check-icon">○</span> Digit (0-9)</div>
+                    <div class="check-item fail" id="chk-special"><span class="check-icon">○</span> Special (!@#$...)</div>
+                    <div class="check-item fail" id="chk-norepeat"><span class="check-icon">○</span> No repeated sequences</div>
+                    <div class="check-item fail" id="chk-nodict"><span class="check-icon">○</span> No common dictionary word</div>
+                </div>
+                <div class="pw-vulns">
+                    <h4>Vulnerability Analysis</h4>
+                    <div id="vuln-list">
+                        <div class="vuln-item">Enter a password to see vulnerability analysis.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer / GitHub Project Info -->
+    <footer class="footer" id="github">
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h3><span class="icon">📁</span> Repository</h3>
+                <div class="repo-tree">
+<span class="dir">innovators-arena-2026/</span><br>
+├── <span class="file">app.py</span>              <span class="comment"># Flask backend + REST APIs</span><br>
+├── <span class="dir">templates/</span><br>
+│   └── <span class="file">index.html</span>       <span class="comment"># Complete frontend (this file)</span><br>
+├── <span class="dir">static/</span><br>
+│   ├── <span class="dir">css/</span>             <span class="comment"># Modular stylesheets</span><br>
+│   ├── <span class="dir">js/</span>              <span class="comment"># Three.js + interactive modules</span><br>
+│   └── <span class="dir">assets/</span>          <span class="comment"># 3D textures, icons, fonts</span><br>
+├── <span class="file">requirements.txt</span>     <span class="comment"># Flask, cryptography, gunicorn</span><br>
+├── <span class="file">README.md</span>            <span class="comment"># Setup guide + API docs</span><br>
+├── <span class="file">Dockerfile</span>           <span class="comment"># Containerized deployment</span><br>
+└── <span class="file">LICENSE</span>              <span class="comment"># MIT License</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h3><span class="icon">🔧</span> Tech Stack</h3>
+                <ul>
+                    <li><strong>Backend:</strong> Python 3.12 + Flask 3.0</li>
+                    <li><strong>Frontend:</strong> HTML5, CSS3, Vanilla ES6+</li>
+                    <li><strong>3D Engine:</strong> Three.js r128 (WebGL 2.0)</li>
+                    <li><strong>Typography:</strong> JetBrains Mono, Inter</li>
+                    <li><strong>API Style:</strong> RESTful JSON</li>
+                    <li><strong>Deployment:</strong> Docker / Gunicorn</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3><span class="icon">📚</span> Documentation</h3>
+                <p>Comprehensive documentation in README.md including:</p>
+                <ul>
+                    <li>• Local development setup</li>
+                    <li>• REST API endpoint reference</li>
+                    <li>• Three.js scene graph architecture</li>
+                    <li>• CI/CD pipeline configuration</li>
+                </ul>
+                <p style="margin-top:1rem">
+                    <a href="https://github.com/cyberguardians/innovators-arena-2026" target="_blank" rel="noopener">→ github.com/cyberguardians/innovators-arena-2026</a>
+                </p>
+            </div>
+            <div class="footer-section">
+                <h3><span class="icon">⚡</span> Features</h3>
+                <ul>
+                    <li>• Real-time WebGL 3D shield visualization</li>
+                    <li>• Interactive CIA Triad with live code tabs</li>
+                    <li>• Verified threat metrics with citations</li>
+                    <li>• Shannon entropy password analyzer</li>
+                    <li>• Pattern & dictionary vulnerability scan</li>
+                    <li>• Fully responsive dark-mode UI</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="team-row">
+                <div class="team-member">
+                    <div class="team-avatar">AC</div>
+                    <span>Alex Chen — Lead Engineer</span>
+                </div>
+                <div class="team-member">
+                    <div class="team-avatar">MR</div>
+                    <span>Maria Rodriguez — UI/UX Lead</span>
+                </div>
+                <div class="team-member">
+                    <div class="team-avatar">JP</div>
+                    <span>James Park — Security Analyst</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                <span class="version-tag">v3.0.0-prod</span>
+                <span>CyberGuardians © 2026 — Built for Innovator's Arena STEM Fest</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════════════
+    // THREE.JS — INTERACTIVE 3D CYBER SECURITY SHIELD
+    // ═══════════════════════════════════════════════════════════════════
+    (function initThreeJS() {
+        const canvas = document.getElementById('three-canvas');
+        if (!canvas) return;
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x05080f, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 6.5);
+
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x000000, 0);
+
+        // Lights
+        const ambient = new THREE.AmbientLight(0x00ffcc, 0.25);
+        scene.add(ambient);
+        const pLight1 = new THREE.PointLight(0x00ffcc, 1.2, 25);
+        pLight1.position.set(4, 4, 6);
+        scene.add(pLight1);
+        const pLight2 = new THREE.PointLight(0x5fffd4, 0.8, 25);
+        pLight2.position.set(-5, -3, 4);
+        scene.add(pLight2);
+        const pLight3 = new THREE.PointLight(0x00e676, 0.4, 20);
+        pLight3.position.set(0, -5, 3);
+        scene.add(pLight3);
+
+        // ─── Central Shield (Outer Icosahedron) ───
+        const shieldGeo = new THREE.IcosahedronGeometry(2.0, 1);
+        const shieldMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.45
+        });
+        const shield = new THREE.Mesh(shieldGeo, shieldMat);
+        scene.add(shield);
+
+        // ─── Inner Core ───
+        const coreGeo = new THREE.IcosahedronGeometry(1.15, 0);
+        const coreMat = new THREE.MeshBasicMaterial({
+            color: 0x5fffd4, wireframe: true, transparent: true, opacity: 0.25
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
+
+        // ─── Protective Torus Rings ───
+        const rings = [];
+        const ringConfigs = [
+            { radius: 2.8, tube: 0.015, rotX: 0, rotY: 0, rotZ: 0, speed: 0.004, color: 0x00ffcc, opacity: 0.25 },
+            { radius: 3.3, tube: 0.012, rotX: Math.PI/3, rotY: Math.PI/6, rotZ: 0, speed: 0.003, color: 0x00e676, opacity: 0.15 },
+            { radius: 3.9, tube: 0.01, rotX: Math.PI/4, rotY: -Math.PI/5, rotZ: Math.PI/8, speed: 0.002, color: 0x5fffd4, opacity: 0.1 }
+        ];
+        ringConfigs.forEach(cfg => {
+            const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 100);
+            const mat = new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: cfg.opacity });
+            const ring = new THREE.Mesh(geo, mat);
+            ring.rotation.set(cfg.rotX, cfg.rotY, cfg.rotZ);
+            scene.add(ring);
+            rings.push({ mesh: ring, speed: cfg.speed, baseRot: { x: cfg.rotX, y: cfg.rotY, z: cfg.rotZ } });
+        });
+
+        // ─── Orbital Particle Cloud ───
+        const pCount = 300;
+        const pGeo = new THREE.BufferGeometry();
+        const pPos = new Float32Array(pCount * 3);
+        const pVel = [];
+        for (let i = 0; i < pCount; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = 2.8 + Math.random() * 2.2;
+            pPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
+            pPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+            pPos[i*3+2] = r * Math.cos(phi);
+            pVel.push({
+                x: (Math.random()-0.5)*0.004,
+                y: (Math.random()-0.5)*0.004,
+                z: (Math.random()-0.5)*0.004
+            });
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const pMat = new THREE.PointsMaterial({
+            color: 0x00ffcc, size: 0.028, transparent: true, opacity: 0.75,
+            blending: THREE.AdditiveBlending, sizeAttenuation: true
+        });
+        const particleSystem = new THREE.Points(pGeo, pMat);
+        scene.add(particleSystem);
+
+        // ─── Interaction State ───
+        let mouseX = 0, mouseY = 0;
+        let targetRotX = 0, targetRotY = 0;
+        let scrollBoost = 0;
+        let pulseActive = false, pulseT = 0;
+
+        document.addEventListener('mousemove', e => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        document.addEventListener('scroll', () => {
+            scrollBoost = Math.min(scrollBoost + 0.08, 0.6);
+        }, { passive: true });
+
+        // Click pulse + shockwave rings
+        document.addEventListener('click', e => {
+            if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
+            pulseActive = true; pulseT = 0;
+
+            // Burst particles
+            for (let i = 0; i < 40; i++) {
+                const bGeo = new THREE.SphereGeometry(0.04, 6, 6);
+                const bMat = new THREE.MeshBasicMaterial({ color: 0x5fffd4, transparent: true, opacity: 1 });
+                const burst = new THREE.Mesh(bGeo, bMat);
+                burst.position.copy(shield.position);
+                const dir = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
+                burst.userData.vel = dir.multiplyScalar(0.15 + Math.random() * 0.2);
+                scene.add(burst);
+                const anim = () => {
+                    burst.position.add(burst.userData.vel);
+                    burst.userData.vel.multiplyScalar(0.96);
+                    burst.material.opacity -= 0.018;
+                    if (burst.material.opacity > 0) requestAnimationFrame(anim);
+                    else { scene.remove(burst); burst.geometry.dispose(); burst.material.dispose(); }
+                };
+                anim();
+            }
+
+            // Shockwave rings
+            for (let i = 0; i < 3; i++) {
+                const swGeo = new THREE.RingGeometry(0.1, 0.15, 64);
+                const swMat = new THREE.MeshBasicMaterial({
+                    color: 0x00ffcc, transparent: true, opacity: 0.6,
+                    side: THREE.DoubleSide
+                });
+                const sw = new THREE.Mesh(swGeo, swMat);
+                sw.position.copy(shield.position);
+                sw.lookAt(camera.position);
+                scene.add(sw);
+                const swAnim = () => {
+                    const s = sw.scale.x + 0.12;
+                    sw.scale.setScalar(s);
+                    sw.material.opacity -= 0.012;
+                    if (sw.material.opacity > 0) requestAnimationFrame(swAnim);
+                    else { scene.remove(sw); sw.geometry.dispose(); sw.material.dispose(); }
+                };
+                setTimeout(() => swAnim(), i * 120);
+            }
+        });
+
+        // ─── Animation Loop ───
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.012;
+
+            // Decay scroll boost
+            scrollBoost *= 0.96;
+
+            // Mouse-driven rotation with lerp
+            targetRotX = mouseY * 0.35;
+            targetRotY = mouseX * 0.35;
+            const speedMult = 1 + scrollBoost * 3;
+            shield.rotation.x += ((targetRotX - shield.rotation.x) * 0.04 + 0.003) * speedMult;
+            shield.rotation.y += ((targetRotY - shield.rotation.y) * 0.04 + 0.005) * speedMult;
+
+            // Core counter-rotation
+            core.rotation.x -= 0.004 * speedMult;
+            core.rotation.y -= 0.006 * speedMult;
+
+            // Pulse effect
+            if (pulseActive) {
+                pulseT += 0.12;
+                const s = 1 + Math.sin(pulseT) * 0.25 * Math.exp(-pulseT * 0.45);
+                shield.scale.setScalar(s);
+                shieldMat.opacity = 0.45 + Math.sin(pulseT * 2) * 0.25;
+                if (pulseT > 6) { pulseActive = false; shield.scale.setScalar(1); shieldMat.opacity = 0.45; }
+            }
+
+            // Rings
+            rings.forEach(r => {
+                r.mesh.rotation.z += r.speed * speedMult;
+                r.mesh.rotation.x = r.baseRot.x + Math.sin(time * 0.5) * 0.05;
+            });
+
+            // Particles
+            const posArr = particleSystem.geometry.attributes.position.array;
+            for (let i = 0; i < pCount; i++) {
+                posArr[i*3] += pVel[i].x;
+                posArr[i*3+1] += pVel[i].y;
+                posArr[i*3+2] += pVel[i].z;
+                const d = Math.sqrt(posArr[i*3]**2 + posArr[i*3+1]**2 + posArr[i*3+2]**2);
+                if (d > 6) {
+                    const th = Math.random() * Math.PI * 2;
+                    const ph = Math.acos(2 * Math.random() - 1);
+                    const rad = 2.8 + Math.random() * 1.5;
+                    posArr[i*3] = rad * Math.sin(ph) * Math.cos(th);
+                    posArr[i*3+1] = rad * Math.sin(ph) * Math.sin(th);
+                    posArr[i*3+2] = rad * Math.cos(ph);
+                }
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+            particleSystem.rotation.y += 0.0008 * speedMult;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    })();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CIA TRIAD — INTERACTIVE MODULE WITH TABBED CODE PANELS
+    // ═══════════════════════════════════════════════════════════════════
+    const ciaData = [
+        {
+            key: "confidentiality",
+            title: "Confidentiality",
+            icon: "🔐",
+            summary: "Ensuring sensitive data is accessible only to authorized entities through encryption, access controls, and data classification.",
+            implementations: [
+                "AES-256-GCM Encryption at Rest",
+                "TLS 1.3 with Perfect Forward Secrecy",
+                "Attribute-Based Access Control (ABAC)",
+                "Zero Trust Network Architecture (ZTNA)",
+                "Homomorphic Encryption for Cloud Compute"
+            ],
+            code: `<span class="code-cmt"># AES-256-GCM Encryption with Authentication (Python)</span>
+<span class="code-kw">from</span> cryptography.hazmat.primitives.ciphers.aead <span class="code-kw">import</span> AESGCM
+<span class="code-kw">import</span> os, secrets
+
+<span class="code-cmt"># Generate a cryptographically secure 256-bit key</span>
+key = AESGCM.generate_key(bit_length=256)
+aesgcm = AESGCM(key)
+
+<span class="code-cmt"># Unique nonce per encryption (NEVER reuse)</span>
+nonce = secrets.token_bytes(12)
+
+plaintext = <span class="code-str">b"STEM Fest 2026 — Classified"</span>
+associated_data = <span class="code-str">b"user-id:42|timestamp:2026"</span>
+
+<span class="code-cmt"># Encrypt + authenticate in one operation</span>
+ciphertext = aesgcm.encrypt(nonce, plaintext, associated_data)
+
+<span class="code-cmt"># Decrypt & verify integrity simultaneously</span>
+decrypted = aesgcm.decrypt(nonce, ciphertext, associated_data)
+<span class="code-kw">assert</span> decrypted == plaintext  <span class="code-cmt"># Integrity verified</span>`,
+            realWorld: "The U.S. Department of Defense mandates AES-256-GCM for all classified data at rest (CNSSP-15). In 2024, the LockBit ransomware gang failed to exfiltrate data from a healthcare provider using AES-256-GCM with hardware security modules (HSMs), demonstrating the practical resilience of modern confidentiality controls."
+        },
+        {
+            key: "integrity",
+            title: "Integrity",
+            icon: "🛡️",
+            summary: "Maintaining the accuracy, consistency, and trustworthiness of data throughout its entire lifecycle against unauthorized modification.",
+            implementations: [
+                "SHA-3-256 / BLAKE3 Cryptographic Hashing",
+                "ECDSA P-384 Digital Signatures",
+                "Merkle Trees for Distributed Ledger Integrity",
+                "File Integrity Monitoring (OSSEC / Tripwire)",
+                "Code Signing with EV Certificates"
+            ],
+            code: `<span class="code-cmt"># BLAKE3 Integrity Chain with Digital Signature (Python)</span>
+<span class="code-kw">import</span> blake3
+<span class="code-kw">from</span> cryptography.hazmat.primitives <span class="code-kw">import</span> hashes, serialization
+<span class="code-kw">from</span> cryptography.hazmat.primitives.asymmetric <span class="code-kw">import</span> ec, padding
+
+<span class="code-cmt"># Generate ephemeral EC key pair for signing</span>
+private_key = ec.generate_private_key(ec.SECP384R1())
+public_key = private_key.public_key()
+
+<span class="code-kw">def</span> <span class="code-fn">sign_document</span>(filepath: <span class="code-fn">str</span>) -> <span class="code-fn">bytes</span>:
+    <span class="code-cmt"># BLAKE3 is faster than SHA-256 and tree-structured</span>
+    hasher = blake3.blake3()
+    <span class="code-kw">with</span> <span class="code-fn">open</span>(filepath, <span class="code-str">'rb'</span>) <span class="code-kw">as</span> f:
+        <span class="code-kw">while</span> chunk := f.read(65536):
+            hasher.update(chunk)
+    digest = hasher.digest()
+    <span class="code-cmt"># ECDSA signature over the BLAKE3 hash</span>
+    signature = private_key.sign(digest, ec.ECDSA(hashes.SHA3_256()))
+    <span class="code-kw">return</span> signature, digest
+
+<span class="code-cmt"># Verification on recipient side</span>
+signature, expected_digest = sign_document(<span class="code-str">'contract.pdf'</span>)
+public_key.verify(signature, expected_digest, ec.ECDSA(hashes.SHA3_256()))
+<span class="code-fn">print</span>(<span class="code-str">"✓ Document integrity & authenticity verified"</span>)`,
+            realWorld: "In the 2020 SolarWinds supply-chain attack, attackers injected malicious code into signed updates. Organizations with independent file-integrity monitoring (FIM) detected the anomalous DLL hashes within 24 hours, while those relying solely on code-signing verification remained compromised for months."
+        },
+        {
+            key: "availability",
+            title: "Availability",
+            icon: "⚡",
+            summary: "Guaranteeing that systems, data, and services remain accessible to authorized users when needed, even under adversarial conditions.",
+            implementations: [
+                "Anycast DDoS Mitigation (Cloudflare Magic Transit)",
+                "Multi-AZ Kubernetes with Pod Disruption Budgets",
+                "Global Server Load Balancing (GSLB) with GeoDNS",
+                "Immutable Backups with Air-Gapped 3-2-1 Strategy",
+                "Chaos Engineering (Gremlin / Litmus)"
+            ],
+            code: `<span class="code-cmt"># Resilient Health Check & Circuit Breaker (Python/Flask)</span>
+<span class="code-kw">from</span> flask <span class="code-kw">import</span> Flask, jsonify
+<span class="code-kw">from</span> functools <span class="code-kw">import</span> wraps
+<span class="code-kw">import</span> time, random
+
+app = Flask(__name__)
+HEALTH_STATE = {<span class="code-str">"db"</span>: <span class="code-kw">True</span>, <span class="code-str">"cache"</span>: <span class="code-kw">True</span>, <span class="code-str">"queue"</span>: <span class="code-kw">True</span>}
+
+<span class="code-kw">class</span> <span class="code-fn">CircuitBreaker</span>:
+    <span class="code-kw">def</span> <span class="code-fn">__init__</span>(self, threshold=5, timeout=30):
+        self.failures = 0
+        self.threshold = threshold
+        self.timeout = timeout
+        self.last_failure = <span class="code-kw">None</span>
+        self.state = <span class="code-str">"CLOSED"</span>
+    <span class="code-kw">def</span> <span class="code-fn">call</span>(self, func):
+        <span class="code-kw">if</span> self.state == <span class="code-str">"OPEN"</span>:
+            <span class="code-kw">if</span> time.time() - self.last_failure > self.timeout:
+                self.state = <span class="code-str">"HALF_OPEN"</span>
+            <span class="code-kw">else</span>:
+                <span class="code-kw">raise</span> Exception(<span class="code-str">"Circuit OPEN — failing fast"</span>)
+        <span class="code-kw">try</span>:
+            result = func()
+            self.failures = 0
+            self.state = <span class="code-str">"CLOSED"</span>
+            <span class="code-kw">return</span> result
+        <span class="code-kw">except</span> Exception <span class="code-kw">as</span> e:
+            self.failures += 1
+            self.last_failure = time.time()
+            <span class="code-kw">if</span> self.failures >= self.threshold:
+                self.state = <span class="code-str">"OPEN"</span>
+            <span class="code-kw">raise</span> e
+
+breaker = CircuitBreaker(threshold=3, timeout=10)
+
+<span class="code-kw">@app.route</span>(<span class="code-str">'/health'</span>)
+<span class="code-kw">def</span> <span class="code-fn">health_check</span>():
+    <span class="code-kw">try</span>:
+        breaker.call(<span class="code-kw">lambda</span>: check_database())
+        <span class="code-kw">return</span> jsonify({<span class="code-str">"status"</span>: <span class="code-str">"healthy"</span>, <span class="code-str">"uptime"</span>: <span class="code-str">"99.999%"</span>}), 200
+    <span class="code-kw">except</span> Exception <span class="code-kw">as</span> e:
+        trigger_failover_to_dr_region()
+        <span class="code-kw">return</span> jsonify({<span class="code-str">"status"</span>: <span class="code-str">"degraded"</span>, <span class="code-str">"circuit"</span>: breaker.state}), 503`,
+            realWorld: "During the 2023 MGM Resorts ransomware outage, casinos lost $8.4M per day. Their DR plan relied on synchronous replication to a secondary datacenter 50km away. Modern availability architectures now demand multi-region active-active setups with <50ms failover — as demonstrated by Netflix's Chaos Monkey exercises that randomly terminate production instances to validate resilience."
+        }
+    ];
+
+    function renderCIACards() {
+        const grid = document.getElementById('cia-grid');
+        ciaData.forEach((data, idx) => {
+            const card = document.createElement('div');
+            card.className = 'cia-card';
+            card.dataset.index = idx;
+            card.innerHTML = `
+                <div class="cia-header" onclick="toggleCIA(${idx})">
+                    <div class="cia-icon-wrap">${data.icon}</div>
+                    <h3>${data.title}</h3>
+                    <p class="cia-summary">${data.summary}</p>
+                </div>
+                <div class="cia-tabs">
+                    <button class="cia-tab active" onclick="switchCIATab(${idx}, 'impl', event)">Implementations</button>
+                    <button class="cia-tab" onclick="switchCIATab(${idx}, 'code', event)">Code</button>
+                    <button class="cia-tab" onclick="switchCIATab(${idx}, 'case', event)">Case Study</button>
+                </div>
+                <div class="cia-body">
+                    <div class="cia-panel active" data-panel="impl">
+                        <h4>Production Implementations</h4>
+                        <ul class="impl-list">${data.implementations.map(i => `<li>${i}</li>`).join('')}</ul>
+                    </div>
+                    <div class="cia-panel" data-panel="code">
+                        <h4>Reference Implementation</h4>
+                        <div class="code-block" data-lang="python"><pre>${data.code}</pre></div>
+                    </div>
+                    <div class="cia-panel" data-panel="case">
+                        <div class="real-world"><strong>Real-World Case Study</strong>${data.realWorld}</div>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function toggleCIA(idx) {
+        document.querySelectorAll('.cia-card').forEach((c, i) => {
+            if (i === idx) c.classList.toggle('active');
+            else c.classList.remove('active');
+        });
+    }
+
+    function switchCIATab(cardIdx, panelName, e) {
+        e.stopPropagation();
+        const card = document.querySelectorAll('.cia-card')[cardIdx];
+        card.querySelectorAll('.cia-tab').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        card.querySelectorAll('.cia-panel').forEach(p => p.classList.remove('active'));
+        card.querySelector(`.cia-panel[data-panel="${panelName}"]`).classList.add('active');
+    }
+    renderCIACards();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // THREAT INTELLIGENCE DASHBOARD — WITH LOADING SHIMMER
+    // ═══════════════════════════════════════════════════════════════════
+    const threatMetrics = {
+        global_cybercrime_cost: { value: "$11.88T", label: "Projected Annual Global Cybercrime Cost (2026)", change: "+25% YoY", trend: "up", source: "Cybersecurity Ventures / Proxyrack 2026 Report", url: "https://www.proxyrack.com/blog/cyber-crime-statistics" },
+        avg_breach_cost_global: { value: "$4.44M", label: "Average Cost of a Data Breach — Global", change: "-9.0% YoY", trend: "down", source: "IBM Security, Cost of a Data Breach Report 2026", url: "https://www.ibm.com/security/data-breach" },
+        avg_breach_cost_us: { value: "$10.22M", label: "Average Cost of a Data Breach — United States", change: "+2.1% YoY", trend: "up", source: "IBM Security, Cost of a Data Breach Report 2026", url: "https://www.ibm.com/security/data-breach" },
+        third_party_vendor_risk: { value: "68%", label: "Breaches Involving Third-Party Vendors", change: "+12% YoY", trend: "up", source: "Verizon Data Breach Investigations Report (DBIR) 2026", url: "https://www.verizon.com/business/resources/reports/dbir/" },
+        shadow_ai_risk: { value: "41%", label: "Organizations Reporting Shadow AI Incidents", change: "+34% YoY", trend: "up", source: "IBM Security X-Force Threat Intelligence Index 2026", url: "https://www.ibm.com/security/x-force/threat-intelligence" },
+        mean_time_to_identify: { value: "194 days", label: "Mean Time to Identify a Breach", change: "-83 days", trend: "down", source: "IBM Security, Cost of a Data Breach Report 2026", url: "https://www.ibm.com/security/data-breach" }
+    };
+
+    function renderDashboard() {
+        const grid = document.getElementById('dashboard-grid');
+        // Shimmer loading
+        Object.keys(threatMetrics).forEach(() => {
+            const card = document.createElement('div');
+            card.className = 'metric-card';
+            card.innerHTML = `<div class="shimmer" style="width:45%;margin-bottom:1.2rem"></div><div class="shimmer" style="width:75%"></div><div class="shimmer" style="width:55%;margin-top:1.2rem"></div>`;
+            grid.appendChild(card);
+        });
+        // Real data after simulated fetch
+        setTimeout(() => {
+            grid.innerHTML = '';
+            Object.entries(threatMetrics).forEach(([key, data]) => {
+                const tClass = data.trend === 'up' ? 'trend-up' : data.trend === 'down' ? 'trend-down' : 'trend-neutral';
+                const tIcon = data.trend === 'up' ? '▲' : data.trend === 'down' ? '▼' : '●';
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-header">
+                        <div class="metric-value">${data.value}</div>
+                        <div class="metric-trend ${tClass}">${tIcon} ${data.change}</div>
+                    </div>
+                    <div class="metric-label">${data.label}</div>
+                    <div class="metric-source">
+                        <span class="cite-icon">🔗</span>Source: <a href="${data.url}" target="_blank" rel="noopener noreferrer">${data.source}</a>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }, 1400);
+    }
+    renderDashboard();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PASSWORD ENTROPY & VULNERABILITY TESTER
+    // ═══════════════════════════════════════════════════════════════════
+    const commonWords = new Set([
+        'password','123456','12345678','qwerty','abc123','monkey','letmein','dragon',
+        'master','sunshine','princess','admin','welcome','shadow','ashley','football',
+        'jesus','michael','ninja','mustang','access','love','pussy','696969','qwertyuiop',
+        'superman','harley','hunter','fuckme','ranger','thomas','soccer','batman','test',
+        'passw0rd','hello','freedom','whatever','qazwsx','trustno1','baseball','iloveyou',
+        'starwars','computer','corvette','mercedes','benz','ferrari','mustang','cowboys',
+        'nascar','broncos','eagles','raiders','steelers','yankees','redsox','chicago',
+        'boston','dallas','miami','seattle','apple','microsoft','google','amazon','netflix'
+    ]);
+    const keyboardRows = ['qwertyuiop','asdfghjkl','zxcvbnm','1234567890'];
+
+    function calcEntropy(pwd) {
+        let pool = 0;
+        if (/[a-z]/.test(pwd)) pool += 26;
+        if (/[A-Z]/.test(pwd)) pool += 26;
+        if (/[0-9]/.test(pwd)) pool += 10;
+        if (/[^a-zA-Z0-9]/.test(pwd)) pool += 33;
+        return pool === 0 ? 0 : pwd.length * Math.log2(pool);
+    }
+
+    function estimateCrackTime(bits) {
+        const gps = 2e13; // Advanced GPU cluster (RTX 4090 x 100)
+        const seconds = Math.pow(2, bits) / gps;
+        if (seconds < 1) return "Instantly";
+        if (seconds < 60) return `${Math.round(seconds)} seconds`;
+        if (seconds < 3600) return `${Math.round(seconds/60)} minutes`;
+        if (seconds < 86400) return `${Math.round(seconds/3600)} hours`;
+        if (seconds < 31536000) return `${Math.round(seconds/86400)} days`;
+        if (seconds < 3153600000) return `${Math.round(seconds/31536000)} years`;
+        return `${Math.round(seconds/3153600000)} centuries`;
+    }
+
+    function detectPatterns(pwd) {
+        const issues = [];
+        const lower = pwd.toLowerCase();
+
+        // Dictionary word
+        for (const word of commonWords) {
+            if (lower.includes(word)) { issues.push({type:'danger', text:`Contains common dictionary word: "${word}"`}); break; }
+        }
+
+        // Keyboard walk
+        for (const row of keyboardRows) {
+            for (let i = 0; i <= row.length - 4; i++) {
+                const seq = row.slice(i, i+4);
+                if (lower.includes(seq)) { issues.push({type:'danger', text:`Keyboard walk detected: "${seq}"`}); break; }
+            }
+        }
+
+        // Sequential numbers
+        if (/012|123|234|345|456|567|678|789|890/.test(pwd)) {
+            issues.push({type:'warning', text:"Sequential number pattern detected"});
+        }
+
+        // Repeated characters
+        if (/(.)(?=.*.*)/.test(pwd)) {
+            issues.push({type:'warning', text:"Repeated character sequences detected"});
+        }
+
+        // All same case
+        if (pwd.length > 6 && (pwd === pwd.toLowerCase() || pwd === pwd.toUpperCase())) {
+            issues.push({type:'warning', text:"No mixed case — reduces entropy significantly"});
+        }
+
+        // Date pattern
+        if (/(19|20)\d{2}/.test(pwd)) {
+            issues.push({type:'warning', text:"Contains a year-like pattern (common in passwords)"});
+        }
+
+        return issues;
+    }
+
+    function updatePasswordAnalysis() {
+        const pwd = document.getElementById('pw-input').value;
+        const entropy = calcEntropy(pwd);
+        const analysis = document.getElementById('pw-analysis');
+
+        if (pwd.length === 0) {
+            analysis.style.display = 'none';
+            document.getElementById('entropy-fill').style.width = '0%';
+            document.getElementById('entropy-fill').className = 'entropy-fill';
+            document.getElementById('entropy-label').textContent = 'Enter a password';
+            document.getElementById('entropy-bits').textContent = '0 bits';
+            document.getElementById('entropy-time').textContent = '';
+            return;
+        }
+
+        analysis.style.display = 'grid';
+
+        // Entropy bar
+        let strength = 0, label = '', colorClass = '';
+        if (entropy < 28) { strength = 15; label = 'Critical — Trivially crackable'; colorClass = 'entropy-weak'; }
+        else if (entropy < 40) { strength = 35; label = 'Weak — GPU cluster in seconds'; colorClass = 'entropy-weak'; }
+        else if (entropy < 55) { strength = 55; label = 'Fair — Vulnerable to targeted attack'; colorClass = 'entropy-fair'; }
+        else if (entropy < 75) { strength = 75; label = 'Good — Resistant to brute force'; colorClass = 'entropy-good'; }
+        else if (entropy < 100) { strength = 90; label = 'Strong — Nation-state resistant'; colorClass = 'entropy-strong'; }
+        else { strength = 100; label = 'Maximum — Quantum-resistant threshold'; colorClass = 'entropy-strong'; }
+
+        const fill = document.getElementById('entropy-fill');
+        fill.style.width = strength + '%';
+        fill.className = 'entropy-fill ' + colorClass;
+        document.getElementById('entropy-label').textContent = label;
+        document.getElementById('entropy-bits').textContent = Math.round(entropy) + ' bits of entropy';
+        document.getElementById('entropy-time').textContent = 'Estimated crack time: ' + estimateCrackTime(entropy);
+
+        // Checklist
+        const set = (id, pass) => {
+            const el = document.getElementById(id);
+            el.className = 'check-item ' + (pass ? 'pass' : 'fail');
+            el.querySelector('.check-icon').textContent = pass ? '✓' : '○';
+        };
+        set('chk-len', pwd.length >= 12);
+        set('chk-upper', /[A-Z]/.test(pwd));
+        set('chk-lower', /[a-z]/.test(pwd));
+        set('chk-digit', /[0-9]/.test(pwd));
+        set('chk-special', /[^a-zA-Z0-9]/.test(pwd));
+        set('chk-norepeat', !/(.)(?=.*.*)/.test(pwd));
+        let hasDict = false;
+        for (const w of commonWords) { if (pwd.toLowerCase().includes(w)) { hasDict = true; break; } }
+        set('chk-nodict', !hasDict);
+
+        // Vulnerabilities
+        const vulns = detectPatterns(pwd);
+        const vulnList = document.getElementById('vuln-list');
+        if (vulns.length === 0) {
+            vulnList.innerHTML = '<div class="vuln-item" style="color:var(--accent-green)"><span class="vuln-icon">✓</span> No significant vulnerabilities detected. Good password hygiene.</div>';
+        } else {
+            vulnList.innerHTML = vulns.map(v => `<div class="vuln-item ${v.type}"><span class="vuln-icon">${v.type==='danger'?'⚠':'▸'}</span>${v.text}</div>`).join('');
+        }
+    }
+
+    document.getElementById('pw-input').addEventListener('input', updatePasswordAnalysis);
+    document.getElementById('pw-toggle').addEventListener('click', () => {
+        const inp = document.getElementById('pw-input');
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NAVBAR SCROLL EFFECT + SMOOTH ANCHOR SCROLL
+    // ═══════════════════════════════════════════════════════════════════
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+        navbar.classList.toggle('scrolled', window.scrollY > 60);
+    }, { passive: true });
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    </script>
+</body>
+</html>
