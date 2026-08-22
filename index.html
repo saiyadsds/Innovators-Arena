@@ -477,15 +477,7 @@
             transition: var(--transition);
         }
         .footer-section a:hover { color: var(--cyan-bright); text-decoration: underline; }
-        .repo-tree {
-            background: #030712; border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 1.2rem;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
-            color: var(--text-dim); line-height: 1.9;
-        }
-        .repo-tree .dir { color: var(--cyan); }
-        .repo-tree .file { color: var(--text-muted); }
-        .repo-tree .comment { color: #334155; }
+
         .footer-bottom {
             max-width: 1280px; margin: 0 auto; padding-top: 2rem;
             border-top: 1px solid var(--border);
@@ -537,7 +529,7 @@
             <li><a href="#cia">CIA Triad</a></li>
             <li><a href="#dashboard">Threat Intel</a></li>
             <li><a href="#simulator">Simulator</a></li>
-            <li><a href="#github" class="nav-cta">GitHub Repo</a></li>
+            
         </ul>
     </nav>
 
@@ -645,25 +637,18 @@
         </div>
     </section>
 
-    <!-- Footer / GitHub Project Info -->
-    <footer class="footer" id="github">
+    <!-- Footer / Project Info -->
+    <footer class="footer" id="project">
         <div class="footer-grid">
             <div class="footer-section">
-                <h3><span class="icon">📁</span> Repository</h3>
-                <div class="repo-tree">
-<span class="dir">innovators-arena-2026/</span><br>
-├── <span class="file">app.py</span>              <span class="comment"># Flask backend + REST APIs</span><br>
-├── <span class="dir">templates/</span><br>
-│   └── <span class="file">index.html</span>       <span class="comment"># Complete frontend (this file)</span><br>
-├── <span class="dir">static/</span><br>
-│   ├── <span class="dir">css/</span>             <span class="comment"># Modular stylesheets</span><br>
-│   ├── <span class="dir">js/</span>              <span class="comment"># Three.js + interactive modules</span><br>
-│   └── <span class="dir">assets/</span>          <span class="comment"># 3D textures, icons, fonts</span><br>
-├── <span class="file">requirements.txt</span>     <span class="comment"># Flask, cryptography, gunicorn</span><br>
-├── <span class="file">README.md</span>            <span class="comment"># Setup guide + API docs</span><br>
-├── <span class="file">Dockerfile</span>           <span class="comment"># Containerized deployment</span><br>
-└── <span class="file">LICENSE</span>              <span class="comment"># MIT License</span>
-                </div>
+                <h3><span class="icon">🏗️</span> Architecture</h3>
+                <p>A full-stack cybersecurity education platform built with modern web technologies and real-time 3D visualization.</p>
+                <ul style="margin-top:0.8rem">
+                    <li>• Modular Flask backend with RESTful APIs</li>
+                    <li>• Vanilla ES6+ frontend, zero dependencies</li>
+                    <li>• WebGL 2.0 via Three.js r128</li>
+                    <li>• Containerized with Docker + Gunicorn</li>
+                </ul>
             </div>
             <div class="footer-section">
                 <h3><span class="icon">🔧</span> Tech Stack</h3>
@@ -685,8 +670,8 @@
                     <li>• Three.js scene graph architecture</li>
                     <li>• CI/CD pipeline configuration</li>
                 </ul>
-                <p style="margin-top:1rem">
-                    <a href="https://github.com/cyberguardians/innovators-arena-2026" target="_blank" rel="noopener">→ github.com/cyberguardians/innovators-arena-2026</a>
+                <p style="margin-top:1rem; color:var(--text-dim)">
+                    Built for Innovator's Arena STEM Fest 2026 — Cyber Security Track
                 </p>
             </div>
             <div class="footer-section">
@@ -727,97 +712,273 @@
     // ═══════════════════════════════════════════════════════════════════
     // THREE.JS — INTERACTIVE 3D CYBER SECURITY SHIELD
     // ═══════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════
+    // THREE.JS — ADVANCED SCI-FI CYBER-DEFENSE CORE
+    // ═══════════════════════════════════════════════════════════════════
     (function initThreeJS() {
         const canvas = document.getElementById('three-canvas');
         if (!canvas) return;
 
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x05080f, 0.035);
+        scene.fog = new THREE.FogExp2(0x05080f, 0.025);
 
         const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 6.5);
+        camera.position.set(0, 0, 7.5);
 
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
 
-        // Lights
-        const ambient = new THREE.AmbientLight(0x00ffcc, 0.25);
-        scene.add(ambient);
-        const pLight1 = new THREE.PointLight(0x00ffcc, 1.2, 25);
-        pLight1.position.set(4, 4, 6);
-        scene.add(pLight1);
-        const pLight2 = new THREE.PointLight(0x5fffd4, 0.8, 25);
-        pLight2.position.set(-5, -3, 4);
-        scene.add(pLight2);
-        const pLight3 = new THREE.PointLight(0x00e676, 0.4, 20);
-        pLight3.position.set(0, -5, 3);
-        scene.add(pLight3);
+        // ─── ADVANCED LIGHTING RIG ───
+        const ambientLight = new THREE.AmbientLight(0x0a1628, 0.6);
+        scene.add(ambientLight);
 
-        // ─── Central Shield (Outer Icosahedron) ───
-        const shieldGeo = new THREE.IcosahedronGeometry(2.0, 1);
-        const shieldMat = new THREE.MeshBasicMaterial({
-            color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.45
-        });
-        const shield = new THREE.Mesh(shieldGeo, shieldMat);
-        scene.add(shield);
+        const dirLightCyan = new THREE.DirectionalLight(0x22d3ee, 1.2);
+        dirLightCyan.position.set(5, 5, 8);
+        scene.add(dirLightCyan);
 
-        // ─── Inner Core ───
-        const coreGeo = new THREE.IcosahedronGeometry(1.15, 0);
+        const dirLightPurple = new THREE.DirectionalLight(0xa855f7, 0.8);
+        dirLightPurple.position.set(-5, -3, 6);
+        scene.add(dirLightPurple);
+
+        const corePointLight = new THREE.PointLight(0x22d3ee, 2.5, 20);
+        corePointLight.position.set(0, 0, 0);
+        scene.add(corePointLight);
+
+        const rimLight = new THREE.PointLight(0x5fffd4, 0.6, 15);
+        rimLight.position.set(0, 4, -2);
+        scene.add(rimLight);
+
+        // ─── MASTER ASSEMBLY GROUP ───
+        const assembly = new THREE.Group();
+        scene.add(assembly);
+
+        // ─── CENTRAL ENERGY CORE ───
+        const coreGeo = new THREE.IcosahedronGeometry(0.85, 2);
         const coreMat = new THREE.MeshBasicMaterial({
-            color: 0x5fffd4, wireframe: true, transparent: true, opacity: 0.25
+            color: 0x22d3ee,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
         });
-        const core = new THREE.Mesh(coreGeo, coreMat);
-        scene.add(core);
+        const energyCore = new THREE.Mesh(coreGeo, coreMat);
+        assembly.add(energyCore);
 
-        // ─── Protective Torus Rings ───
-        const rings = [];
-        const ringConfigs = [
-            { radius: 2.8, tube: 0.015, rotX: 0, rotY: 0, rotZ: 0, speed: 0.004, color: 0x00ffcc, opacity: 0.25 },
-            { radius: 3.3, tube: 0.012, rotX: Math.PI/3, rotY: Math.PI/6, rotZ: 0, speed: 0.003, color: 0x00e676, opacity: 0.15 },
-            { radius: 3.9, tube: 0.01, rotX: Math.PI/4, rotY: -Math.PI/5, rotZ: Math.PI/8, speed: 0.002, color: 0x5fffd4, opacity: 0.1 }
+        // Inner pulsing sphere
+        const innerCoreGeo = new THREE.IcosahedronGeometry(0.55, 1);
+        const innerCoreMat = new THREE.MeshBasicMaterial({
+            color: 0x67e8f9,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending
+        });
+        const innerCore = new THREE.Mesh(innerCoreGeo, innerCoreMat);
+        assembly.add(innerCore);
+
+        // ─── MECHANICAL ARMOR SHELL (Nested Octahedrons + Dodecahedrons) ───
+        const shellGroup = new THREE.Group();
+        assembly.add(shellGroup);
+
+        // Outer wireframe octahedron shell
+        const shell1Geo = new THREE.OctahedronGeometry(1.55, 1);
+        const shell1Mat = new THREE.MeshBasicMaterial({
+            color: 0x0e7490,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.35,
+            blending: THREE.AdditiveBlending
+        });
+        const shell1 = new THREE.Mesh(shell1Geo, shell1Mat);
+        shellGroup.add(shell1);
+
+        // Dark chrome solid facets (dodecahedron)
+        const shell2Geo = new THREE.DodecahedronGeometry(1.35, 0);
+        const shell2Mat = new THREE.MeshBasicMaterial({
+            color: 0x1e293b,
+            transparent: true,
+            opacity: 0.45,
+            side: THREE.DoubleSide,
+            blending: THREE.NormalBlending
+        });
+        const shell2 = new THREE.Mesh(shell2Geo, shell2Mat);
+        shellGroup.add(shell2);
+
+        // Inner wireframe dodecahedron
+        const shell3Geo = new THREE.DodecahedronGeometry(1.15, 0);
+        const shell3Mat = new THREE.MeshBasicMaterial({
+            color: 0x22d3ee,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.2,
+            blending: THREE.AdditiveBlending
+        });
+        const shell3 = new THREE.Mesh(shell3Geo, shell3Mat);
+        shellGroup.add(shell3);
+
+        // Corner nodes on octahedron
+        const cornerPositions = [
+            [1.55, 0, 0], [-1.55, 0, 0],
+            [0, 1.55, 0], [0, -1.55, 0],
+            [0, 0, 1.55], [0, 0, -1.55]
         ];
-        ringConfigs.forEach(cfg => {
-            const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 100);
-            const mat = new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: cfg.opacity });
-            const ring = new THREE.Mesh(geo, mat);
-            ring.rotation.set(cfg.rotX, cfg.rotY, cfg.rotZ);
-            scene.add(ring);
-            rings.push({ mesh: ring, speed: cfg.speed, baseRot: { x: cfg.rotX, y: cfg.rotY, z: cfg.rotZ } });
+        cornerPositions.forEach(pos => {
+            const nodeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+            const nodeMat = new THREE.MeshBasicMaterial({
+                color: 0x22d3ee,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            const node = new THREE.Mesh(nodeGeo, nodeMat);
+            node.position.set(...pos);
+            shellGroup.add(node);
         });
 
-        // ─── Orbital Particle Cloud ───
-        const pCount = 300;
+        // ─── ORBITAL GIMBAL RINGS ───
+        const rings = [];
+
+        function createGimbalRing(radius, tube, color, rotX, rotY, rotZ, speed, nodeCount) {
+            const group = new THREE.Group();
+
+            // Main ring
+            const ringGeo = new THREE.TorusGeometry(radius, tube, 24, 120);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            group.add(ring);
+
+            // Segmented tick marks (inner ring detail)
+            const tickGeo = new THREE.TorusGeometry(radius, tube * 0.4, 8, 120);
+            const tickMat = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.15,
+                blending: THREE.AdditiveBlending
+            });
+            const tickRing = new THREE.Mesh(tickGeo, tickMat);
+            group.add(tickRing);
+
+            // Defense nodes / satellites
+            for (let i = 0; i < nodeCount; i++) {
+                const angle = (i / nodeCount) * Math.PI * 2;
+                const nodeGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+                const nodeMat = new THREE.MeshBasicMaterial({
+                    color: 0x67e8f9,
+                    transparent: true,
+                    opacity: 0.7,
+                    blending: THREE.AdditiveBlending
+                });
+                const node = new THREE.Mesh(nodeGeo, nodeMat);
+                node.position.set(
+                    Math.cos(angle) * radius,
+                    Math.sin(angle) * radius,
+                    0
+                );
+                // Small antenna on each node
+                const antGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2, 4);
+                const antMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.5 });
+                const antenna = new THREE.Mesh(antGeo, antMat);
+                antenna.position.y = 0.1;
+                node.add(antenna);
+                group.add(node);
+            }
+
+            group.rotation.set(rotX, rotY, rotZ);
+            assembly.add(group);
+            return { group, speed, baseRot: { x: rotX, y: rotY, z: rotZ } };
+        }
+
+        rings.push(createGimbalRing(2.4, 0.025, 0x22d3ee, 0, 0, 0, 0.006, 8));
+        rings.push(createGimbalRing(3.1, 0.018, 0xa855f7, Math.PI / 2.5, Math.PI / 4, 0, 0.004, 12));
+        rings.push(createGimbalRing(3.8, 0.012, 0x5fffd4, Math.PI / 3, -Math.PI / 6, Math.PI / 8, 0.0025, 16));
+
+        // Counter-rotating outer ring segments
+        const outerRingGeo = new THREE.TorusGeometry(4.5, 0.008, 8, 200);
+        const outerRingMat = new THREE.MeshBasicMaterial({
+            color: 0x0e7490,
+            transparent: true,
+            opacity: 0.12,
+            blending: THREE.AdditiveBlending
+        });
+        const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+        outerRing.rotation.x = Math.PI / 2.2;
+        assembly.add(outerRing);
+
+        // ─── PARTICLE FIELD (300+ floating particles) ───
+        const pCount = 400;
         const pGeo = new THREE.BufferGeometry();
         const pPos = new Float32Array(pCount * 3);
+        const pSizes = new Float32Array(pCount);
         const pVel = [];
         for (let i = 0; i < pCount; i++) {
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const r = 2.8 + Math.random() * 2.2;
+            const r = 2.5 + Math.random() * 3.0;
             pPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
             pPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
             pPos[i*3+2] = r * Math.cos(phi);
+            pSizes[i] = 0.015 + Math.random() * 0.025;
             pVel.push({
-                x: (Math.random()-0.5)*0.004,
-                y: (Math.random()-0.5)*0.004,
-                z: (Math.random()-0.5)*0.004
+                x: (Math.random()-0.5)*0.003,
+                y: (Math.random()-0.5)*0.003,
+                z: (Math.random()-0.5)*0.003,
+                baseR: r
             });
         }
         pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1));
         const pMat = new THREE.PointsMaterial({
-            color: 0x00ffcc, size: 0.028, transparent: true, opacity: 0.75,
-            blending: THREE.AdditiveBlending, sizeAttenuation: true
+            color: 0x22d3ee,
+            size: 0.04,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true
         });
         const particleSystem = new THREE.Points(pGeo, pMat);
         scene.add(particleSystem);
 
-        // ─── Interaction State ───
+        // ─── DATA STREAM LINES ───
+        const streamCount = 24;
+        const streams = [];
+        for (let i = 0; i < streamCount; i++) {
+            const angle = (i / streamCount) * Math.PI * 2;
+            const points = [];
+            const segments = 20;
+            for (let j = 0; j <= segments; j++) {
+                const t = j / segments;
+                const r = 0.9 + t * 3.2;
+                const wobble = Math.sin(t * Math.PI * 3) * 0.15;
+                points.push(new THREE.Vector3(
+                    Math.cos(angle + t * 0.5) * r + wobble,
+                    Math.sin(angle + t * 0.5) * r + wobble * 0.5,
+                    (Math.random() - 0.5) * 0.5 * t
+                ));
+            }
+            const streamGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const streamMat = new THREE.LineBasicMaterial({
+                color: 0x22d3ee,
+                transparent: true,
+                opacity: 0.08 + Math.random() * 0.12,
+                blending: THREE.AdditiveBlending
+            });
+            const line = new THREE.Line(streamGeo, streamMat);
+            scene.add(line);
+            streams.push({ line, angle, speed: 0.3 + Math.random() * 0.4 });
+        }
+
+        // ─── INTERACTION STATE ───
         let mouseX = 0, mouseY = 0;
         let targetRotX = 0, targetRotY = 0;
         let scrollBoost = 0;
         let pulseActive = false, pulseT = 0;
+        let shockwaveActive = false, shockwaveT = 0;
 
         document.addEventListener('mousemove', e => {
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -825,27 +986,44 @@
         });
 
         document.addEventListener('scroll', () => {
-            scrollBoost = Math.min(scrollBoost + 0.08, 0.6);
+            scrollBoost = Math.min(scrollBoost + 0.1, 0.8);
         }, { passive: true });
 
-        // Click pulse + shockwave rings
+        // ─── CLICK DEFENSIVE PULSE ───
         document.addEventListener('click', e => {
             if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
             pulseActive = true; pulseT = 0;
+            shockwaveActive = true; shockwaveT = 0;
 
-            // Burst particles
-            for (let i = 0; i < 40; i++) {
-                const bGeo = new THREE.SphereGeometry(0.04, 6, 6);
-                const bMat = new THREE.MeshBasicMaterial({ color: 0x5fffd4, transparent: true, opacity: 1 });
+            // Flash core light
+            corePointLight.intensity = 8.0;
+
+            // Burst particles outward
+            for (let i = 0; i < 60; i++) {
+                const bGeo = new THREE.SphereGeometry(0.03 + Math.random() * 0.04, 6, 6);
+                const bMat = new THREE.MeshBasicMaterial({
+                    color: Math.random() > 0.5 ? 0x22d3ee : 0x67e8f9,
+                    transparent: true,
+                    opacity: 1,
+                    blending: THREE.AdditiveBlending
+                });
                 const burst = new THREE.Mesh(bGeo, bMat);
-                burst.position.copy(shield.position);
-                const dir = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
-                burst.userData.vel = dir.multiplyScalar(0.15 + Math.random() * 0.2);
+                burst.position.copy(energyCore.position);
+                const dir = new THREE.Vector3(
+                    Math.random()-0.5,
+                    Math.random()-0.5,
+                    Math.random()-0.5
+                ).normalize();
+                burst.userData.vel = dir.multiplyScalar(0.12 + Math.random() * 0.18);
+                burst.userData.returnSpeed = 0.02 + Math.random() * 0.03;
                 scene.add(burst);
                 const anim = () => {
                     burst.position.add(burst.userData.vel);
-                    burst.userData.vel.multiplyScalar(0.96);
-                    burst.material.opacity -= 0.018;
+                    burst.userData.vel.multiplyScalar(0.94);
+                    // Pull back toward center
+                    const toCenter = new THREE.Vector3(0,0,0).sub(burst.position).multiplyScalar(burst.userData.returnSpeed);
+                    burst.userData.vel.add(toCenter);
+                    burst.material.opacity -= 0.012;
                     if (burst.material.opacity > 0) requestAnimationFrame(anim);
                     else { scene.remove(burst); burst.geometry.dispose(); burst.material.dispose(); }
                 };
@@ -853,61 +1031,97 @@
             }
 
             // Shockwave rings
-            for (let i = 0; i < 3; i++) {
-                const swGeo = new THREE.RingGeometry(0.1, 0.15, 64);
+            for (let i = 0; i < 4; i++) {
+                const swGeo = new THREE.RingGeometry(0.1, 0.2, 80);
                 const swMat = new THREE.MeshBasicMaterial({
-                    color: 0x00ffcc, transparent: true, opacity: 0.6,
-                    side: THREE.DoubleSide
+                    color: i % 2 === 0 ? 0x22d3ee : 0xa855f7,
+                    transparent: true,
+                    opacity: 0.5,
+                    side: THREE.DoubleSide,
+                    blending: THREE.AdditiveBlending
                 });
                 const sw = new THREE.Mesh(swGeo, swMat);
-                sw.position.copy(shield.position);
+                sw.position.copy(energyCore.position);
                 sw.lookAt(camera.position);
                 scene.add(sw);
                 const swAnim = () => {
-                    const s = sw.scale.x + 0.12;
+                    const s = sw.scale.x + 0.15;
                     sw.scale.setScalar(s);
-                    sw.material.opacity -= 0.012;
+                    sw.material.opacity -= 0.01;
                     if (sw.material.opacity > 0) requestAnimationFrame(swAnim);
                     else { scene.remove(sw); sw.geometry.dispose(); sw.material.dispose(); }
                 };
-                setTimeout(() => swAnim(), i * 120);
+                setTimeout(() => swAnim(), i * 100);
             }
         });
 
-        // ─── Animation Loop ───
+        // ─── ANIMATION LOOP ───
         let time = 0;
         function animate() {
             requestAnimationFrame(animate);
             time += 0.012;
 
             // Decay scroll boost
-            scrollBoost *= 0.96;
+            scrollBoost *= 0.95;
+            const speedMult = 1 + scrollBoost * 4;
 
-            // Mouse-driven rotation with lerp
-            targetRotX = mouseY * 0.35;
-            targetRotY = mouseX * 0.35;
-            const speedMult = 1 + scrollBoost * 3;
-            shield.rotation.x += ((targetRotX - shield.rotation.x) * 0.04 + 0.003) * speedMult;
-            shield.rotation.y += ((targetRotY - shield.rotation.y) * 0.04 + 0.005) * speedMult;
+            // Smooth mouse tracking with momentum/damping
+            targetRotX = mouseY * 0.4;
+            targetRotY = mouseX * 0.4;
+            assembly.rotation.x += (targetRotX - assembly.rotation.x) * 0.035;
+            assembly.rotation.y += (targetRotY - assembly.rotation.y) * 0.035;
 
-            // Core counter-rotation
-            core.rotation.x -= 0.004 * speedMult;
-            core.rotation.y -= 0.006 * speedMult;
+            // Energy core pulse
+            const pulseScale = 1 + Math.sin(time * 2.5) * 0.08;
+            energyCore.scale.setScalar(pulseScale);
+            innerCore.scale.setScalar(pulseScale * 0.9);
 
-            // Pulse effect
+            // Core light flicker
+            corePointLight.intensity += (2.5 - corePointLight.intensity) * 0.05;
+            corePointLight.intensity += (Math.random() - 0.5) * 0.15;
+
+            // Shell rotation
+            shell1.rotation.y += 0.003 * speedMult;
+            shell1.rotation.x += 0.001 * speedMult;
+            shell2.rotation.y -= 0.002 * speedMult;
+            shell3.rotation.y += 0.004 * speedMult;
+            shell3.rotation.z += 0.001 * speedMult;
+
+            // Gimbal rings
+            rings.forEach((r, idx) => {
+                r.group.rotation.z += r.speed * speedMult;
+                r.group.rotation.x = r.baseRot.x + Math.sin(time * 0.4 + idx) * 0.06;
+                r.group.rotation.y = r.baseRot.y + Math.cos(time * 0.3 + idx) * 0.04;
+            });
+
+            // Outer counter-rotating ring
+            outerRing.rotation.z -= 0.001 * speedMult;
+
+            // Defensive pulse effect
             if (pulseActive) {
-                pulseT += 0.12;
-                const s = 1 + Math.sin(pulseT) * 0.25 * Math.exp(-pulseT * 0.45);
-                shield.scale.setScalar(s);
-                shieldMat.opacity = 0.45 + Math.sin(pulseT * 2) * 0.25;
-                if (pulseT > 6) { pulseActive = false; shield.scale.setScalar(1); shieldMat.opacity = 0.45; }
+                pulseT += 0.1;
+                const s = 1 + Math.sin(pulseT) * 0.3 * Math.exp(-pulseT * 0.4);
+                shellGroup.scale.setScalar(s);
+                energyCore.material.opacity = 0.9 + Math.sin(pulseT * 3) * 0.3;
+                if (pulseT > 8) {
+                    pulseActive = false;
+                    shellGroup.scale.setScalar(1);
+                    energyCore.material.opacity = 0.9;
+                }
             }
 
-            // Rings
-            rings.forEach(r => {
-                r.mesh.rotation.z += r.speed * speedMult;
-                r.mesh.rotation.x = r.baseRot.x + Math.sin(time * 0.5) * 0.05;
-            });
+            // Shockwave ring expansion
+            if (shockwaveActive) {
+                shockwaveT += 0.08;
+                rings.forEach(r => {
+                    const expand = 1 + Math.sin(shockwaveT) * 0.15 * Math.exp(-shockwaveT * 0.5);
+                    r.group.scale.setScalar(expand);
+                });
+                if (shockwaveT > 6) {
+                    shockwaveActive = false;
+                    rings.forEach(r => r.group.scale.setScalar(1));
+                }
+            }
 
             // Particles
             const posArr = particleSystem.geometry.attributes.position.array;
@@ -916,17 +1130,34 @@
                 posArr[i*3+1] += pVel[i].y;
                 posArr[i*3+2] += pVel[i].z;
                 const d = Math.sqrt(posArr[i*3]**2 + posArr[i*3+1]**2 + posArr[i*3+2]**2);
-                if (d > 6) {
+                if (d > 7 || d < 1.5) {
                     const th = Math.random() * Math.PI * 2;
                     const ph = Math.acos(2 * Math.random() - 1);
-                    const rad = 2.8 + Math.random() * 1.5;
+                    const rad = pVel[i].baseR;
                     posArr[i*3] = rad * Math.sin(ph) * Math.cos(th);
                     posArr[i*3+1] = rad * Math.sin(ph) * Math.sin(th);
                     posArr[i*3+2] = rad * Math.cos(ph);
                 }
             }
             particleSystem.geometry.attributes.position.needsUpdate = true;
-            particleSystem.rotation.y += 0.0008 * speedMult;
+            particleSystem.rotation.y += 0.0006 * speedMult;
+
+            // Data streams
+            streams.forEach((stream, idx) => {
+                stream.angle += stream.speed * 0.005 * speedMult;
+                const positions = stream.line.geometry.attributes.position.array;
+                const segments = 20;
+                for (let j = 0; j <= segments; j++) {
+                    const t = j / segments;
+                    const r = 0.9 + t * 3.2;
+                    const wobble = Math.sin(t * Math.PI * 3 + time * 2 + idx) * 0.15;
+                    positions[j*3] = Math.cos(stream.angle + t * 0.5) * r + wobble;
+                    positions[j*3+1] = Math.sin(stream.angle + t * 0.5) * r + wobble * 0.5;
+                    positions[j*3+2] = Math.sin(time + idx + t * 3) * 0.3 * t;
+                }
+                stream.line.geometry.attributes.position.needsUpdate = true;
+                stream.line.material.opacity = 0.08 + Math.sin(time * 2 + idx) * 0.06;
+            });
 
             renderer.render(scene, camera);
         }
