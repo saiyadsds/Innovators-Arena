@@ -10,7 +10,576 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    // ═══════════════════════════════════════════════════════════════════
+    // PHISHING EMAIL INSPECTOR
+    // ═══════════════════════════════════════════════════════════════════
+    const phishingEmails = [
+        {
+            id: 1, from: "IT Support <it-support@company-secure.com>",
+            replyTo: "it-support@company-secure.com",
+            domain: "company-secure.com", subject: "Password Expiration Notice",
+            body: "Your password will expire in 24 hours. Click the link below to reset it immediately and avoid account lockout.",
+            link: "https://company-secure.com/reset-password", linkSafe: true,
+            attachment: null, isPhishing: false,
+            hints: ["Domain matches company name", "No urgency language", "HTTPS secure link"]
+        },
+        {
+            id: 2, from: "PayPal <service@paypa1.com>",
+            replyTo: "service@paypa1.com",
+            domain: "paypa1.com", subject: "Unauthorized Transaction Detected",
+            body: "We noticed unusual activity on your account. Confirm your identity by clicking below or your account will be suspended within 2 hours.",
+            link: "http://paypa1.com/verify-account", linkSafe: false,
+            attachment: null, isPhishing: true,
+            hints: ["Domain is 'paypa1.com' (number 1 instead of letter l)", "Urgency and threat language", "HTTP not HTTPS"]
+        },
+        {
+            id: 3, from: "Amazon <no-reply@amazon.com>",
+            replyTo: "no-reply@amazon.com",
+            domain: "amazon.com", subject: "Your Order #112-3948573-8293847 Has Shipped",
+            body: "Your recent order has been shipped and will arrive on August 25. Track your package using the link below.",
+            link: "https://www.amazon.com/gp/orders", linkSafe: true,
+            attachment: null, isPhishing: false,
+            hints: ["Legitimate Amazon domain", "Specific order number", "No urgency threats"]
+        },
+        {
+            id: 4, from: "Netflix <billing@netflix-security.co>",
+            replyTo: "billing@netflix-security.co",
+            domain: "netflix-security.co", subject: "Payment Failed — Update Billing Info",
+            body: "Your monthly payment could not be processed. Update your payment method within 24 hours or your subscription will be cancelled and all viewing history deleted.",
+            link: "http://netflix-security.co/billing-update", linkSafe: false,
+            attachment: "Invoice_Aug2026.pdf.exe", isPhishing: true,
+            hints: ["Suspicious domain 'netflix-security.co'", "Threat of data deletion", "Executable attachment (.exe)", "HTTP link"]
+        },
+        {
+            id: 5, from: "HR Department <hr@cyberguardians.org>",
+            replyTo: "hr@cyberguardians.org",
+            domain: "cyberguardians.org", subject: "Q3 Benefits Enrollment Open",
+            body: "Q3 benefits enrollment is now open. Please review the attached guide and submit your selections by September 15.",
+            link: null, linkSafe: true,
+            attachment: "Q3_Benefits_Guide.pdf", isPhishing: false,
+            hints: ["Internal company domain", "Reasonable deadline", "Standard PDF attachment"]
+        },
+        {
+            id: 6, from: "DHL Express <tracking@dhl-express-delivery.net>",
+            replyTo: "tracking@dhl-express-delivery.net",
+            domain: "dhl-express-delivery.net", subject: "Urgent: Package Delivery Failed",
+            body: "We attempted to deliver your package but no one was available. You must reschedule delivery within 12 hours or the package will be returned to sender. Click to reschedule now.",
+            link: "http://dhl-express-delivery.net/reschedule?ref=urgent", linkSafe: false,
+            attachment: "Delivery_Receipt.docm", isPhishing: true,
+            hints: ["Unofficial DHL domain", "Urgency language ('within 12 hours')", "Macro-enabled Word doc (.docm)", "HTTP link with suspicious query"]
+        }
+    ];
+
+    let phishState = { current: null, answered: new Set(), correct: 0 };
+
+    function renderInbox() {
+        const list = document.getElementById('inbox-list');
+        list.innerHTML = '';
+        phishingEmails.forEach((email, idx) => {
+            const row = document.createElement('div');
+            row.className = 'email-row' + (phishState.answered.has(email.id) ? ' answered' : '');
+            row.dataset.id = email.id;
+            row.onclick = () => selectEmail(email.id);
+            let statusClass = 'status-pending', statusText = 'Pending';
+            if (phishState.answered.has(email.id)) {
+                const wasCorrect = localStorage.getItem('phish_' + email.id) === (email.isPhishing ? 'phishing' : 'safe');
+                statusClass = wasCorrect ? 'status-correct' : 'status-wrong';
+                statusText = wasCorrect ? '✓ Correct' : '✗ Wrong';
+            }
+            row.innerHTML = `
+                <div class="email-icon">${email.isPhishing ? '📧' : '📨'}</div>
+                <div>
+                    <div class="email-from">${email.from}</div>
+                    <div class="email-subj">${email.subject}</div>
+                </div>
+                <div class="email-time">${10 - idx * 2}m ago</div>
+                <div class="email-status ${statusClass}">${statusText}</div>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    function selectEmail(id) {
+        const email = phishingEmails.find(e => e.id === id);
+        if (!email) return;
+        phishState.current = email;
+        document.querySelectorAll('.email-row').forEach(r => r.classList.remove('selected'));
+        document.querySelector(`.email-row[data-id="${id}"]`).classList.add('selected');
+        const det = document.getElementById('email-detail');
+        det.classList.add('active');
+        document.getElementById('det-from').textContent = email.from;
+        document.getElementById('det-from').className = email.from.includes('@') && !email.from.includes(email.domain) ? 'suspicious' : '';
+        document.getElementById('det-reply').textContent = email.replyTo;
+        const fromMatch = email.from.match(/<([^>]+)>/);
+        const fromAddr = fromMatch ? fromMatch[1] : email.from;
+        document.getElementById('det-reply').className = email.replyTo !== fromAddr ? 'suspicious' : '';
+        document.getElementById('det-domain').innerHTML = email.domain.includes('paypa1') || email.domain.includes('netflix-security') || email.domain.includes('dhl-express-delivery') ? `<span class="suspicious">${email.domain} ⚠ Suspicious</span>` : `<span class="safe">${email.domain} ✓ Verified</span>`;
+        document.getElementById('det-subj').textContent = email.subject;
+        document.getElementById('det-body').textContent = email.body;
+        const linkWrap = document.getElementById('det-link-wrap');
+        linkWrap.innerHTML = email.link ? `<div class="detail-field"><label>Link</label><span class="detail-link ${email.linkSafe ? 'safe' : 'suspicious'}">${email.link}</span></div>` : '';
+        const attachWrap = document.getElementById('det-attach-wrap');
+        attachWrap.innerHTML = email.attachment ? `<div class="detail-field"><label>Attachment</label><span class="detail-attachment">📎 ${email.attachment}</span></div>` : '';
+    }
+
+    function classifyEmail(choice) {
+        if (!phishState.current || phishState.answered.has(phishState.current.id)) return;
+        const email = phishState.current;
+        const correct = (choice === 'phishing' && email.isPhishing) || (choice === 'safe' && !email.isPhishing);
+        phishState.answered.add(email.id);
+        localStorage.setItem('phish_' + email.id, choice);
+        if (correct) phishState.correct++;
+        updatePhishScore();
+        renderInbox();
+        // Show result
+        const result = document.getElementById('phish-result');
+        const resultText = document.getElementById('phish-result-text');
+        result.style.display = 'block';
+        if (correct) {
+            resultText.innerHTML = `<span style="color:var(--accent-green)">✓ Correct!</span> ${email.isPhishing ? 'This was indeed a phishing attempt.' : 'This email is legitimate.'}`;
+        } else {
+            resultText.innerHTML = `<span style="color:var(--accent-red)">✗ Incorrect.</span> ${email.isPhishing ? 'This WAS a phishing email. Watch for suspicious domains and urgency.' : 'This was actually SAFE. Look again at the verified domain.'}`;
+        }
+        if (phishState.answered.size === phishingEmails.length) {
+            resultText.innerHTML += `<br><br><strong style="color:var(--cyan)">Final Score: ${Math.round((phishState.correct / phishingEmails.length) * 100)}%</strong> — ${phishState.correct === phishingEmails.length ? 'Perfect! You are a phishing detection expert.' : 'Review the hints to improve your detection skills.'}`;
+        }
+    }
+
+    function updatePhishScore() {
+        const pct = Math.round((phishState.correct / phishingEmails.length) * 100);
+        document.getElementById('phish-score').textContent = pct + '%';
+        document.getElementById('phish-bar').style.width = pct + '%';
+        document.getElementById('phish-count').textContent = phishState.answered.size + ' / ' + phishingEmails.length;
+    }
+
+    function resetPhishing() {
+        phishState = { current: null, answered: new Set(), correct: 0 };
+        phishingEmails.forEach(e => localStorage.removeItem('phish_' + e.id));
+        document.getElementById('email-detail').classList.remove('active');
+        document.getElementById('phish-result').style.display = 'none';
+        renderInbox();
+    }
+    renderInbox();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SQL INJECTION DEFENSE TERMINAL
+    // ═══════════════════════════════════════════════════════════════════
+    let sqliProtected = false;
+    const sqliDB = {
+        users: [
+            { id: 1, username: "admin", password: "[REDACTED]", role: "admin", email: "admin@corp.net" },
+            { id: 2, username: "jsmith", password: "Summer2024!", role: "user", email: "jsmith@corp.net" },
+            { id: 3, username: "dlee", password: "P@ssw0rd123", role: "user", email: "dlee@corp.net" },
+            { id: 4, username: "awalker", password: "Qwerty!99", role: "analyst", email: "awalker@corp.net" },
+            { id: 5, username: "root", password: "[REDACTED]", role: "superuser", email: "root@corp.net" }
+        ]
+    };
+
+    function logTerminal(text, type = 'output') {
+        const term = document.getElementById('sqli-terminal');
+        const line = document.createElement('div');
+        line.className = 'term-line term-' + type;
+        line.innerHTML = type === 'prompt' ? `<span class="term-prompt">$</span> <span class="term-cmd">${text}</span>` : text;
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+    }
+
+    function toggleSQLiProtection() {
+        sqliProtected = !sqliProtected;
+        document.getElementById('sqli-toggle').classList.toggle('active', sqliProtected);
+        const status = document.getElementById('sqli-status');
+        status.textContent = sqliProtected ? 'ON — Protected' : 'OFF — Vulnerable';
+        status.style.color = sqliProtected ? 'var(--accent-green)' : 'var(--accent-red)';
+        logTerminal(sqliProtected ? '>>> Prepared Statements ENABLED. Input is now parameterized.' : '>>> Prepared Statements DISABLED. Raw SQL execution active.', sqliProtected ? 'success' : 'warn');
+    }
+
+    function injectPayload(payload) {
+        if (!payload.trim()) return;
+        logTerminal(payload, 'prompt');
+        document.getElementById('sqli-input').value = '';
+
+        if (sqliProtected) {
+            logTerminal('Query: SELECT * FROM users WHERE username = ? AND password = ?', 'output');
+            logTerminal(`Parameters: ['${payload.replace(/'/g, "\\'")}', "[hashed_password]"]`, "output");
+            logTerminal('Result: <span class="term-warn">0 rows returned</span> — Parameterized query prevented injection.', 'output');
+            logTerminal('───────────────────────────────', 'output');
+            return;
+        }
+
+        logTerminal("Query: SELECT * FROM users WHERE username = '" + payload + "' AND password = '...'", "output");
+
+        // Simulate vulnerable behavior
+        const lower = payload.toLowerCase();
+        if (lower.includes("' or '1'='1") || lower.includes("'or'1'='1") || lower.includes("or 1=1")) {
+            logTerminal('Result: <span class="term-err">AUTHENTICATION BYPASSED — ' + sqliDB.users.length + ' user records exfiltrated!</span>', 'error');
+            sqliDB.users.forEach(u => {
+                logTerminal(`  → ID:${u.id} | User:${u.username} | Role:${u.role} | Email:${u.email} | Pwd:${u.password}`, 'output');
+            });
+        } else if (lower.includes("union select")) {
+            logTerminal('Result: <span class="term-err">DATA EXFILTRATION — Union-based injection successful!</span>', 'error');
+            logTerminal('  → Dumped schema: users(id, username, password, role, email)', 'output');
+            sqliDB.users.forEach(u => logTerminal(`  → ${u.username} | ${u.password} | ${u.role}`, 'output'));
+        } else if (lower.includes("drop table")) {
+            logTerminal(`Result: <span class='term-err'>DATABASE DESTROYED — Table "users" dropped!</span>`, "error");
+            logTerminal('  → All authentication data lost. Application is down.', 'output');
+        } else if (lower.includes("admin'--")) {
+            logTerminal('Result: <span class="term-err">ADMIN ACCESS GRANTED — Comment injection bypassed password check!</span>', 'error');
+            logTerminal('  → Logged in as: admin (superuser privileges)', 'output');
+        } else {
+            logTerminal('Result: <span class="term-warn">0 rows returned</span> — Payload did not match known vulnerable pattern.', 'output');
+        }
+        logTerminal('───────────────────────────────', 'output');
+    }
+
+    // Initial terminal message
+    logTerminal('MySQL Monitor  v8.0.33  —  Vulnerable App Login Form', 'output');
+    logTerminal('Type a payload or click a chip above to test injection.', 'output');
+    logTerminal('───────────────────────────────', 'output');
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PORT SCANNER & FIREWALL RULE BUILDER
+    // ═══════════════════════════════════════════════════════════════════
+    const fwRules = [
+        { port: 80, service: 'HTTP', protocol: 'http', allowed: true, essential: true },
+        { port: 443, service: 'HTTPS', protocol: 'http', allowed: true, essential: true },
+        { port: 22, service: 'SSH', protocol: 'ssh', allowed: true, essential: true },
+        { port: 3389, service: 'RDP', protocol: 'rdp', allowed: false, essential: false, malicious: true }
+    ];
+    let fwStats = { allowed: 0, blocked: 0, malicious: 0, uptime: 100 };
+    let packetInterval = null;
+
+    function renderFirewall() {
+        const grid = document.getElementById('firewall-grid');
+        grid.innerHTML = '';
+        fwRules.forEach((rule, idx) => {
+            const card = document.createElement('div');
+            card.className = 'fw-rule';
+            card.innerHTML = `
+                <div class="fw-port">:${rule.port}</div>
+                <div class="fw-service">${rule.service}</div>
+                <div class="fw-status ${rule.allowed ? 'fw-allow' : 'fw-block'}">${rule.allowed ? 'ALLOW' : 'BLOCK'}</div>
+                <button class="fw-toggle-btn btn-secondary" onclick="toggleFirewallRule(${idx})">${rule.allowed ? 'Block Port' : 'Allow Port'}</button>
+            `;
+            grid.appendChild(card);
+        });
+        updateFirewallStats();
+    }
+
+    function toggleFirewallRule(idx) {
+        fwRules[idx].allowed = !fwRules[idx].allowed;
+        renderFirewall();
+    }
+
+    function updateFirewallStats() {
+        const canvas = document.getElementById('network-canvas');
+        // Remove old stats text if any
+        const oldStats = canvas.querySelector('.fw-overlay-stats');
+        if (oldStats) oldStats.remove();
+    }
+
+    function spawnPacket() {
+        const canvas = document.getElementById('network-canvas');
+        if (!canvas || canvas.offsetWidth < 100) return;
+        const rule = fwRules[Math.floor(Math.random() * fwRules.length)];
+        const packet = document.createElement('div');
+        packet.className = 'packet ' + rule.protocol;
+        packet.style.left = '0px';
+        packet.style.top = (30 + Math.random() * 200) + 'px';
+        canvas.appendChild(packet);
+
+        let pos = 0;
+        const speed = 2 + Math.random() * 2;
+        const serverX = canvas.offsetWidth - 110;
+
+        const move = setInterval(() => {
+            pos += speed;
+            packet.style.left = pos + 'px';
+            if (pos >= serverX) {
+                clearInterval(move);
+                if (!rule.allowed) {
+                    packet.classList.add('blocked');
+                    fwStats.blocked++;
+                    if (rule.malicious) fwStats.malicious++;
+                } else {
+                    fwStats.allowed++;
+                    if (rule.malicious) {
+                        fwStats.malicious++;
+                        fwStats.uptime = Math.max(0, fwStats.uptime - 5);
+                    }
+                }
+                setTimeout(() => packet.remove(), 400);
+                updateFWDisplay();
+            }
+        }, 20);
+    }
+
+    function updateFWDisplay() {
+        document.getElementById('fw-allowed').textContent = fwStats.allowed;
+        document.getElementById('fw-blocked').textContent = fwStats.blocked;
+        document.getElementById('fw-malicious').textContent = fwStats.malicious;
+        document.getElementById('fw-uptime').textContent = fwStats.uptime + '%';
+        document.getElementById('fw-health').textContent = fwStats.uptime + '%';
+        document.getElementById('fw-bar').style.width = fwStats.uptime + '%';
+        document.getElementById('fw-bar').style.background = fwStats.uptime > 80 ? 'var(--accent-green)' : fwStats.uptime > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+        document.getElementById('fw-status').textContent = fwStats.uptime > 80 ? 'Protected' : fwStats.uptime > 40 ? 'At Risk' : 'Compromised';
+        document.getElementById('fw-status').style.color = fwStats.uptime > 80 ? 'var(--accent-green)' : fwStats.uptime > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+    }
+
+    function startFirewall() {
+        if (packetInterval) clearInterval(packetInterval);
+        packetInterval = setInterval(spawnPacket, 800);
+    }
+    renderFirewall();
+    startFirewall();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CRYPTOGRAPHY CIPHER SANDBOX
+    // ═══════════════════════════════════════════════════════════════════
+    let activeCipher = 'caesar';
+
+    function switchCryptoTab(tab, el) {
+        activeCipher = tab;
+        document.querySelectorAll('.crypto-tab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('caesar-shift').parentElement.style.display = tab === 'caesar' ? 'block' : 'none';
+        document.getElementById('vigenere-control').style.display = tab === 'vigenere' ? 'block' : 'none';
+        document.getElementById('aes-control').style.display = tab === 'aes' ? 'block' : 'none';
+        runCrypto();
+    }
+
+    function caesarCipher(text, shift, decrypt) {
+        const s = decrypt ? (26 - shift) % 26 : shift;
+        return text.replace(/[a-zA-Z]/g, ch => {
+            const base = ch <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+        });
+    }
+
+    function vigenereCipher(text, key, decrypt) {
+        const k = key.toUpperCase().replace(/[^A-Z]/g, '');
+        if (!k) return text;
+        let ki = 0;
+        return text.replace(/[a-zA-Z]/g, ch => {
+            const base = ch <= 'Z' ? 65 : 97;
+            const shift = k.charCodeAt(ki % k.length) - 65;
+            const s = decrypt ? (26 - shift) % 26 : shift;
+            ki++;
+            return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+        });
+    }
+
+    function simulateAES256(text, bits) {
+        // Deterministic pseudo-encryption for demo
+        const seed = text.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+        const chars = '0123456789abcdef';
+        let out = '';
+        const len = bits / 4;
+        for (let i = 0; i < len; i++) {
+            out += chars[(seed + i * 7 + (i * i)) % 16];
+        }
+        return out.match(/.{1,8}/g).join(' ');
+    }
+
+    function generateHashViz(text) {
+        const canvas = document.getElementById('hash-viz');
+        canvas.innerHTML = '';
+        const hash = text.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+        const colors = ['#00ffcc', '#5fffd4', '#00e676', '#448aff', '#ffc107', '#ff4d6d'];
+        for (let i = 0; i < 64; i++) {
+            const block = document.createElement('div');
+            block.className = 'hash-block';
+            const val = Math.abs((hash + i * 13) % 256);
+            block.style.background = colors[val % colors.length];
+            block.style.opacity = 0.3 + (val / 255) * 0.7;
+            canvas.appendChild(block);
+        }
+    }
+
+    function runCrypto() {
+        const text = document.getElementById('crypto-input').value;
+        const mode = document.getElementById('crypto-mode').value;
+        const decrypt = mode === 'decrypt';
+        let output = '';
+
+        if (activeCipher === 'caesar') {
+            const shift = parseInt(document.getElementById('caesar-shift').value);
+            document.getElementById('caesar-val').textContent = 'Shift: ' + shift;
+            output = caesarCipher(text, shift, decrypt);
+        } else if (activeCipher === 'vigenere') {
+            const key = document.getElementById('vigenere-key').value || 'KEY';
+            output = vigenereCipher(text, key, decrypt);
+        } else if (activeCipher === 'aes') {
+            const bits = parseInt(document.getElementById('aes-bits').value);
+            output = '[AES-' + bits + ' ' + (decrypt ? 'DECRYPTION' : 'ENCRYPTION') + ']' + '\n';
+            output += 'Key:    ' + simulateAES256('key' + bits, bits) + '\n';
+            output += 'Nonce:  ' + simulateAES256('nonce' + text.length, 96) + '\n';
+            output += 'Cipher: ' + simulateAES256(text + bits, bits * 2);
+        }
+
+        document.getElementById('crypto-output').textContent = output;
+        generateHashViz(text + activeCipher + mode);
+    }
+    runCrypto();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SOC RANSOMWARE INCIDENT RESPONSE SIMULATOR
+    // ═══════════════════════════════════════════════════════════════════
+    const socScenarios = [
+        {
+            turn: 1, title: "Initial Detection",
+            desc: "The ransomware has been detected on workstation WS-042. Encryption is spreading to adjacent machines. What is your first action?",
+            alert: "⚠ Time-critical: Every minute of delay allows ~3 additional hosts to be encrypted.",
+            choices: [
+                { icon: "🔌", text: "Isolate infected host from network", detail: "Disconnect WS-042 immediately to stop lateral spread.", score: 25, log: "[ACTION] WS-042 isolated from network. Lateral movement halted on subnet 10.0.4.x" },
+                { icon: "📞", text: "Call management before taking action", detail: "Wait for approval from CISO before containment.", score: -10, log: "[DELAY] Awaiting management approval. 4 additional hosts encrypted during wait time." },
+                { icon: "🔍", text: "Begin forensic analysis first", detail: "Collect disk images and memory dumps before containment.", score: 5, log: "[ANALYSIS] Forensic collection started on WS-042. Encryption continues on 3 adjacent hosts." },
+                { icon: "🔄", text: "Restart the infected machine", detail: "Attempt to clear the infection with a reboot.", score: -20, log: "[ERROR] Restart did not clear encryption. Ransomware persisted via registry run keys. 6 new hosts infected." }
+            ]
+        },
+        {
+            turn: 2, title: "Lateral Movement Containment",
+            desc: "The malware is moving via SMB shares and RDP. 15 hosts now show encryption activity. How do you contain the spread?",
+            alert: "⚠ Critical: Domain controller DC-01 is showing anomalous login attempts.",
+            choices: [
+                { icon: "🚫", text: "Disable all SMB and RDP across the network", detail: "Block ports 445 and 3389 network-wide immediately.", score: 30, log: "[CONTAINMENT] SMB/RDP disabled globally. Lateral movement vector neutralized." },
+                { icon: "🔐", text: "Revoke all active user sessions and API tokens", detail: "Force password resets and invalidate OAuth tokens.", score: 20, log: "[IDENTITY] All sessions revoked. API tokens rotated. Attackers lose authenticated access." },
+                { icon: "📧", text: "Send warning email to all employees", detail: "Alert staff to shut down their machines manually.", score: 5, log: "[COMM] Warning sent. 40% of users powered off within 10 minutes. Partial containment." },
+                { icon: "🛡️", text: "Deploy antivirus signature update", detail: "Push new AV definitions to all endpoints.", score: 10, log: "[DEFENSE] AV signatures updated. 60% of endpoints protected. Encryption slowed but not stopped." }
+            ]
+        },
+        {
+            turn: 3, title: "Data Protection",
+            desc: "The attackers have deployed a data exfiltration module. Sensitive customer PII may be leaving the network. What is your priority?",
+            alert: "⚠ DLP alerts: 2.3GB of data transferred to unknown IP 185.220.101.x in the last hour.",
+            choices: [
+                { icon: "💾", text: "Initiate air-gapped backup restoration", detail: "Begin restoring from immutable offline backups.", score: 25, log: "[BACKUP] Air-gapped restore initiated. Immutable backups verified clean. Recovery ETA: 4 hours." },
+                { icon: "🌐", text: "Block outbound traffic to suspicious IPs", detail: "Update firewall rules to drop all traffic to 185.220.101.x/24.", score: 20, log: "[NETWORK] Outbound C2 traffic blocked at perimeter. Data exfiltration stopped." },
+                { icon: "📋", text: "Document the incident for compliance", detail: "Start drafting the mandatory breach notification.", score: 5, log: "[COMPLIANCE] Documentation started. Data exfiltration continues during paperwork." },
+                { icon: "💰", text: "Evaluate ransom payment feasibility", detail: "Assess whether paying the ransom is viable.", score: -15, log: "[RISK] Ransom evaluation delayed response. Attackers exfiltrated additional 800MB customer data." }
+            ]
+        },
+        {
+            turn: 4, title: "Eradication",
+            desc: "Containment is holding. Now you must eradicate the threat from all systems. What is your approach?",
+            alert: "⚠ Rootkit detected on 3 domain controllers. Standard AV cannot remove it.",
+            choices: [
+                { icon: "🧹", text: "Reimage all infected machines from gold image", detail: "Wipe and rebuild every compromised endpoint.", score: 30, log: "[ERADICATION] 42 machines reimaged from verified gold image. Rootkit eliminated." },
+                { icon: "🔧", text: "Attempt manual rootkit removal", detail: "Use specialized tools to clean infected systems.", score: 10, log: "[MANUAL] Rootkit removal attempted. 70% success rate. 12 machines require reimaging anyway." },
+                { icon: "📊", text: "Run full network vulnerability scan", detail: "Identify all unpatched systems before rebuilding.", score: 15, log: "[SCAN] 8 critical vulnerabilities found. Patching prioritized during rebuild process." },
+                { icon: "⏳", text: "Wait for vendor security patch", detail: "Delay eradication until official patch is released.", score: -15, log: "[DELAY] Waiting for patch. Rootkit established persistence on 6 additional servers." }
+            ]
+        },
+        {
+            turn: 5, title: "Recovery & Hardening",
+            desc: "The threat is eradicated. Systems are being restored. What final hardening measures do you implement?",
+            alert: "⚠ Post-incident review required within 72 hours per ISO 27001.",
+            choices: [
+                { icon: "🛡️", text: "Deploy EDR on all endpoints + MFA everywhere", detail: "Comprehensive endpoint protection and identity hardening.", score: 25, log: "[HARDENING] EDR deployed to 100% endpoints. MFA enforced for all users and admin accounts." },
+                { icon: "📚", text: "Conduct company-wide phishing simulation", detail: "Train employees with realistic phishing exercises.", score: 15, log: "[TRAINING] Phishing simulation launched. 23% click rate identified for targeted training." },
+                { icon: "📋", text: "Update incident response playbooks", detail: "Document lessons learned and revise procedures.", score: 10, log: "[PROCESS] Playbooks updated. Mean response time improved by 40% in follow-up drill." },
+                { icon: "✅", text: "Declare incident closed and return to normal", detail: "Resume normal operations immediately.", score: 0, log: "[CLOSURE] Incident declared closed. No additional hardening implemented." }
+            ]
+        }
+    ];
+
+    let socState = { turn: 0, score: 0, logs: [], choicesMade: [] };
+
+    function renderSOCTurn() {
+        const scenario = socScenarios[socState.turn];
+        if (!scenario) return showSOCReport();
+        document.getElementById('soc-turn').textContent = 'Turn ' + (socState.turn + 1) + ' / ' + socScenarios.length;
+        document.getElementById('soc-scenario').innerHTML = `
+            <h4>🎯 Decision Point — Turn ${scenario.turn}: ${scenario.title}</h4>
+            <p>${scenario.desc}</p>
+            <div class="alert-box">${scenario.alert}</div>
+            <div class="soc-choices" id="soc-choices"></div>
+        `;
+        const choicesDiv = document.getElementById('soc-choices');
+        scenario.choices.forEach((choice, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'soc-choice';
+            btn.innerHTML = `<span class="choice-icon">${choice.icon}</span><div class="choice-text"><strong>${choice.text}</strong>${choice.detail}</div>`;
+            btn.onclick = () => makeSOCChoice(idx);
+            choicesDiv.appendChild(btn);
+        });
+    }
+
+    function makeSOCChoice(choiceIdx) {
+        const scenario = socScenarios[socState.turn];
+        const choice = scenario.choices[choiceIdx];
+        socState.score += choice.score;
+        socState.choicesMade.push(choice);
+        socState.logs.push(choice.log);
+        updateSOCLog();
+        updateSOCScore();
+        socState.turn++;
+        if (socState.turn >= socScenarios.length) {
+            showSOCReport();
+        } else {
+            renderSOCTurn();
+        }
+    }
+
+    function updateSOCLog() {
+        const logDiv = document.getElementById('soc-log');
+        const baseTime = new Date('2026-08-23T22:14:33');
+        logDiv.innerHTML = socState.logs.map((l, i) => {
+            const t = new Date(baseTime.getTime() + i * 120000);
+            const time = t.toLocaleTimeString('en-US', { hour12: false });
+            let type = 'log-info';
+            if (l.includes('[ERROR]') || l.includes('[DELAY]') || l.includes('[RISK]')) type = 'log-err';
+            else if (l.includes('[ACTION]') || l.includes('[CONTAINMENT]') || l.includes('[ERADICATION]') || l.includes('[HARDENING]')) type = 'log-ok';
+            else if (l.includes('[WARN]') || l.includes('[ANALYSIS]')) type = 'log-warn';
+            return `<span class="log-time">[${time}]</span> <span class="${type}">${l}</span>`;
+        }).join('<br>');
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function updateSOCScore() {
+        const maxScore = socScenarios.length * 30;
+        const pct = Math.max(0, Math.min(100, Math.round((socState.score / maxScore) * 100)));
+        document.getElementById('soc-score').textContent = pct + '%';
+        document.getElementById('soc-bar').style.width = pct + '%';
+        document.getElementById('soc-bar').style.background = pct > 70 ? 'var(--accent-green)' : pct > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+    }
+
+    function showSOCReport() {
+        document.getElementById('soc-game-area').style.display = 'none';
+        document.getElementById('soc-report').style.display = 'block';
+        const maxScore = socScenarios.length * 30;
+        const pct = Math.max(0, Math.min(100, Math.round((socState.score / maxScore) * 100)));
+        document.getElementById('report-score').textContent = pct + '%';
+        const gradeEl = document.getElementById('report-grade');
+        let grade = 'F', gradeClass = 'grade-c';
+        if (pct >= 90) { grade = 'S'; gradeClass = 'grade-s'; }
+        else if (pct >= 75) { grade = 'A'; gradeClass = 'grade-a'; }
+        else if (pct >= 50) { grade = 'B'; gradeClass = 'grade-b'; }
+        gradeEl.textContent = 'Grade: ' + grade;
+        gradeEl.className = 'report-grade ' + gradeClass;
+        let reportText = '';
+        if (pct >= 90) reportText = "Outstanding response! You contained the outbreak rapidly, protected critical data, and implemented comprehensive hardening. The organization is now significantly more resilient.";
+        else if (pct >= 75) reportText = "Strong response. You effectively contained the threat and minimized damage. A few decisions could have been faster, but overall the network was saved.";
+        else if (pct >= 50) reportText = "Adequate response. The outbreak was eventually contained, but significant data loss occurred. Review the delayed decisions that allowed spread.";
+        else reportText = "Critical failure. The ransomware spread widely due to delayed containment. Significant data was encrypted and exfiltrated. Immediate playbook revision required.";
+        document.getElementById('report-text').textContent = reportText;
+    }
+
+    function resetSOC() {
+        socState = { turn: 0, score: 0, logs: [], choicesMade: [] };
+        document.getElementById('soc-game-area').style.display = 'block';
+        document.getElementById('soc-report').style.display = 'none';
+        document.getElementById('soc-log').innerHTML = `
+            <span class="log-time">[22:14:33]</span> <span class="log-warn">ALERT:</span> EDR detected suspicious file encryption on WS-042<br>
+            <span class="log-time">[22:14:35]</span> <span class="log-err">CRITICAL:</span> Ransomware strain identified as LockBit 3.0 variant<br>
+            <span class="log-time">[22:14:38]</span> <span class="log-info">INFO:</span> 12 endpoints showing encryption activity — lateral movement suspected
+        `;
+        updateSOCScore();
+        renderSOCTurn();
+    }
+    renderSOCTurn();
+
+    </script>
     <style>
         :root {
             --bg-deep: #05080f;
@@ -477,7 +1046,15 @@
             transition: var(--transition);
         }
         .footer-section a:hover { color: var(--cyan-bright); text-decoration: underline; }
-
+        .repo-tree {
+            background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1.2rem;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+            color: var(--text-dim); line-height: 1.9;
+        }
+        .repo-tree .dir { color: var(--cyan); }
+        .repo-tree .file { color: var(--text-muted); }
+        .repo-tree .comment { color: #334155; }
         .footer-bottom {
             max-width: 1280px; margin: 0 auto; padding-top: 2rem;
             border-top: 1px solid var(--border);
@@ -517,6 +1094,296 @@
             .footer-bottom { flex-direction: column; text-align: center; }
             .team-row { justify-content: center; }
         }
+    
+        /* ─── Game Sections Common ─── */
+        .game-section { padding: 7rem 2rem; max-width: 1280px; margin: 0 auto; position: relative; }
+        .game-wrap {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 2.5rem; max-width: 900px; margin: 0 auto;
+            position: relative; overflow: hidden; box-shadow: var(--shadow-card);
+        }
+        .game-wrap::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+        }
+        .game-header { text-align: center; margin-bottom: 2rem; }
+        .game-header h3 { font-size: 1.4rem; margin-bottom: 0.4rem; }
+        .game-header p { color: var(--text-secondary); font-size: 0.95rem; }
+        .game-score-bar {
+            display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+            padding: 1rem 1.2rem; background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+        .game-score-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
+        .game-score-value { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--cyan); }
+        .game-score-bar .progress-track { flex: 1; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; }
+        .game-score-bar .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cyan), var(--cyan-bright));
+            color: var(--bg-deep); border: none; padding: 0.7rem 1.4rem;
+            border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+            transition: var(--transition); font-family: 'Inter', sans-serif;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,255,204,0.3); }
+        .btn-secondary {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 0.7rem 1.4rem;
+            border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+            transition: var(--transition); font-family: 'Inter', sans-serif;
+        }
+        .btn-secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+        .btn-danger {
+            background: rgba(255, 77, 109, 0.15); border: 1px solid rgba(255, 77, 109, 0.3);
+            color: var(--accent-red); padding: 0.7rem 1.4rem; border-radius: 8px;
+            font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: var(--transition);
+        }
+        .btn-danger:hover { background: rgba(255, 77, 109, 0.25); box-shadow: 0 0 15px rgba(255,77,109,0.2); }
+        .btn-success {
+            background: rgba(0, 230, 118, 0.15); border: 1px solid rgba(0, 230, 118, 0.3);
+            color: var(--accent-green); padding: 0.7rem 1.4rem; border-radius: 8px;
+            font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: var(--transition);
+        }
+        .btn-success:hover { background: rgba(0, 230, 118, 0.25); box-shadow: 0 0 15px rgba(0,230,118,0.2); }
+
+        /* ─── Phishing Email Inspector ─── */
+        .inbox-list { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1.5rem; }
+        .email-row {
+            display: grid; grid-template-columns: 40px 1fr 120px 80px;
+            align-items: center; padding: 0.9rem 1.2rem; border-bottom: 1px solid var(--border);
+            cursor: pointer; transition: var(--transition); gap: 0.8rem;
+        }
+        .email-row:last-child { border-bottom: none; }
+        .email-row:hover { background: rgba(0,255,204,0.03); }
+        .email-row.selected { background: rgba(0,255,204,0.06); border-left: 3px solid var(--cyan); }
+        .email-row .email-icon { font-size: 1.2rem; text-align: center; }
+        .email-row .email-from { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+        .email-row .email-subj { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .email-row .email-time { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-dim); text-align: right; }
+        .email-row .email-status { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; text-align: center; }
+        .status-pending { background: rgba(255,193,7,0.1); color: var(--accent-amber); }
+        .status-correct { background: rgba(0,230,118,0.1); color: var(--accent-green); }
+        .status-wrong { background: rgba(255,77,109,0.1); color: var(--accent-red); }
+        .email-detail {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1.5rem; margin-bottom: 1.5rem; display: none;
+        }
+        .email-detail.active { display: block; animation: fadeInUp 0.3s ease; }
+        .detail-header { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+        .detail-field { display: flex; gap: 0.6rem; margin-bottom: 0.4rem; font-size: 0.85rem; }
+        .detail-field label { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; min-width: 80px; }
+        .detail-field span { color: var(--text-secondary); }
+        .detail-field .suspicious { color: var(--accent-red); font-weight: 600; }
+        .detail-field .safe { color: var(--accent-green); font-weight: 600; }
+        .detail-body { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; margin-bottom: 1rem; }
+        .detail-attachment {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(255,77,109,0.08); border: 1px solid rgba(255,77,109,0.2);
+            padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; color: var(--accent-red); margin-top: 0.5rem;
+        }
+        .detail-link {
+            display: inline-block; background: rgba(0,255,204,0.06); border: 1px solid var(--border);
+            padding: 0.3rem 0.7rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; color: var(--cyan); margin-top: 0.5rem; word-break: break-all;
+        }
+        .phish-actions { display: flex; gap: 1rem; justify-content: center; }
+
+        /* ─── SQL Injection Terminal ─── */
+        .terminal-wrap {
+            background: #020408; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', monospace; overflow: hidden;
+        }
+        .terminal-header {
+            background: #0a0e17; padding: 0.6rem 1rem; display: flex; align-items: center; gap: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .term-dot.red { background: var(--accent-red); }
+        .term-dot.yellow { background: var(--accent-amber); }
+        .term-dot.green { background: var(--accent-green); }
+        .terminal-body { padding: 1.2rem; min-height: 200px; max-height: 300px; overflow-y: auto; }
+        .term-line { margin-bottom: 0.4rem; font-size: 0.82rem; line-height: 1.6; }
+        .term-prompt { color: var(--accent-green); }
+        .term-cmd { color: var(--text-primary); }
+        .term-output { color: var(--text-secondary); }
+        .term-error { color: var(--accent-red); }
+        .term-success { color: var(--accent-green); }
+        .term-warn { color: var(--accent-amber); }
+        .term-input-wrap {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1rem;
+            border-top: 1px solid var(--border); background: #030712;
+        }
+        .term-input-wrap input {
+            flex: 1; background: transparent; border: none; color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; outline: none;
+        }
+        .term-input-wrap input::placeholder { color: var(--text-dim); }
+        .sqli-toggle {
+            display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem;
+            padding: 1rem; background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+        }
+        .toggle-switch {
+            position: relative; width: 48px; height: 26px; background: #1e293b; border-radius: 13px;
+            cursor: pointer; transition: var(--transition); border: 1px solid var(--border);
+        }
+        .toggle-switch.active { background: var(--accent-green); border-color: var(--accent-green); }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+            background: #fff; border-radius: 50%; transition: var(--transition);
+        }
+        .toggle-switch.active::after { left: 25px; }
+        .sqli-payloads { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+        .payload-chip {
+            background: rgba(0,255,204,0.05); border: 1px solid var(--border);
+            padding: 0.35rem 0.7rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; color: var(--cyan); cursor: pointer; transition: var(--transition);
+        }
+        .payload-chip:hover { background: rgba(0,255,204,0.12); border-color: var(--cyan); }
+
+        /* ─── Port Scanner & Firewall ─── */
+        .network-canvas {
+            background: #020408; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            height: 280px; position: relative; overflow: hidden; margin-bottom: 1.5rem;
+        }
+        .server-box {
+            position: absolute; right: 30px; top: 50%; transform: translateY(-50%);
+            width: 70px; height: 70px; background: linear-gradient(135deg, var(--cyan), var(--cyan-bright));
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; box-shadow: 0 0 30px rgba(0,255,204,0.2); z-index: 5;
+        }
+        .packet {
+            position: absolute; width: 10px; height: 10px; border-radius: 50%;
+            z-index: 3; transition: left 0.1s linear;
+        }
+        .packet.http { background: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
+        .packet.ssh { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .packet.rdp { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
+        .packet.ftp { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .packet.blocked { opacity: 0.3; animation: packetDie 0.3s ease forwards; }
+        @keyframes packetDie { to { transform: scale(0); opacity: 0; } }
+        .firewall-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+        .fw-rule {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1.2rem; text-align: center; transition: var(--transition);
+        }
+        .fw-rule:hover { border-color: var(--border-hover); }
+        .fw-rule .fw-port {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 0.3rem;
+        }
+        .fw-rule .fw-service { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem; }
+        .fw-rule .fw-status {
+            font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.6rem; border-radius: 6px;
+            display: inline-block; margin-bottom: 0.8rem;
+        }
+        .fw-allow { background: rgba(0,230,118,0.12); color: var(--accent-green); }
+        .fw-block { background: rgba(255,77,109,0.12); color: var(--accent-red); }
+        .fw-toggle-btn { width: 100%; }
+        .fw-stats { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1.2rem; flex-wrap: wrap; }
+        .fw-stat { text-align: center; }
+        .fw-stat .val { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); }
+        .fw-stat .lbl { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ─── Crypto Cipher Sandbox ─── */
+        .crypto-input-wrap { margin-bottom: 1.2rem; }
+        .crypto-input-wrap textarea {
+            width: 100%; background: #030712; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1rem;
+            color: var(--text-primary); font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem; resize: vertical; min-height: 80px; transition: var(--transition);
+        }
+        .crypto-input-wrap textarea:focus { outline: none; border-color: var(--cyan); }
+        .crypto-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+        .crypto-control {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1rem;
+        }
+        .crypto-control label {
+            display: block; font-size: 0.7rem; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 0.6rem;
+        }
+        .crypto-control select, .crypto-control input[type="range"] {
+            width: 100%; background: transparent; border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.5rem; color: var(--text-primary);
+            font-family: 'Inter', sans-serif; font-size: 0.85rem;
+        }
+        .crypto-control input[type="text"] {
+            width: 100%; background: transparent; border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.5rem; color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+        }
+        .slider-val { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--cyan); margin-top: 0.3rem; }
+        .crypto-output {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1.2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+            color: var(--cyan); min-height: 60px; word-break: break-word; line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        .hash-viz {
+            display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; margin-top: 0.8rem;
+        }
+        .hash-block {
+            width: 8px; height: 8px; border-radius: 2px; transition: background 0.3s ease;
+        }
+        .crypto-tabs { display: flex; gap: 0.3rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+        .crypto-tab {
+            background: none; border: none; color: var(--text-muted);
+            padding: 0.6rem 1rem; font-family: 'Inter', sans-serif; font-weight: 500;
+            font-size: 0.82rem; cursor: pointer; position: relative; transition: var(--transition);
+            border-bottom: 2px solid transparent; margin-bottom: -1px;
+        }
+        .crypto-tab:hover { color: var(--text-secondary); }
+        .crypto-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+        /* ─── SOC Ransomware Simulator ─── */
+        .soc-scenario {
+            background: #030712; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1.5rem; margin-bottom: 1.5rem;
+        }
+        .soc-scenario h4 {
+            font-size: 0.8rem; color: var(--cyan); margin-bottom: 0.8rem;
+            text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;
+        }
+        .soc-scenario p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; margin-bottom: 0.8rem; }
+        .soc-scenario .alert-box {
+            background: rgba(255,77,109,0.06); border-left: 3px solid var(--accent-red);
+            padding: 0.8rem 1rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--accent-red);
+            margin-bottom: 1rem;
+        }
+        .soc-choices { display: flex; flex-direction: column; gap: 0.7rem; }
+        .soc-choice {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1rem 1.2rem; cursor: pointer; transition: var(--transition);
+            display: flex; align-items: center; gap: 0.8rem; text-align: left;
+        }
+        .soc-choice:hover { border-color: var(--cyan); background: rgba(0,255,204,0.03); }
+        .soc-choice .choice-icon { font-size: 1.2rem; flex-shrink: 0; }
+        .soc-choice .choice-text { font-size: 0.88rem; color: var(--text-secondary); }
+        .soc-choice .choice-text strong { color: var(--text-primary); display: block; margin-bottom: 0.2rem; }
+        .soc-log {
+            background: #020408; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+            color: var(--text-dim); max-height: 180px; overflow-y: auto; line-height: 1.8;
+            margin-bottom: 1.2rem;
+        }
+        .soc-log .log-time { color: var(--text-muted); }
+        .soc-log .log-info { color: var(--accent-blue); }
+        .soc-log .log-warn { color: var(--accent-amber); }
+        .soc-log .log-err { color: var(--accent-red); }
+        .soc-log .log-ok { color: var(--accent-green); }
+        .soc-report {
+            background: rgba(0,255,204,0.04); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 1.5rem; text-align: center;
+        }
+        .soc-report h4 { color: var(--cyan); margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .soc-report .report-score { font-family: 'JetBrains Mono', monospace; font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin: 0.5rem 0; }
+        .soc-report .report-grade { font-size: 1rem; font-weight: 700; padding: 0.3rem 1rem; border-radius: 6px; display: inline-block; margin-bottom: 0.8rem; }
+        .grade-s { background: rgba(0,230,118,0.15); color: var(--accent-green); }
+        .grade-a { background: rgba(68,138,255,0.15); color: var(--accent-blue); }
+        .grade-b { background: rgba(255,193,7,0.15); color: var(--accent-amber); }
+        .grade-c { background: rgba(255,77,109,0.15); color: var(--accent-red); }
+        .soc-report p { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6; }
+
     </style>
 </head>
 <body>
@@ -529,7 +1396,11 @@
             <li><a href="#cia">CIA Triad</a></li>
             <li><a href="#dashboard">Threat Intel</a></li>
             <li><a href="#simulator">Simulator</a></li>
-            
+            <li><a href="#phishing">Phishing Lab</a></li>
+            <li><a href="#sqli">SQLi Terminal</a></li>
+            <li><a href="#firewall">Firewall</a></li>
+            <li><a href="#crypto">Crypto Sandbox</a></li>
+            <li><a href="#soc">SOC Simulator</a></li>
         </ul>
     </nav>
 
@@ -540,7 +1411,7 @@
         <div class="hero-content">
             <div class="hero-badge">
                 <span class="dot"></span>
-                Innovator's Arena — International STEM Fest 2026
+                Innovator's Arena
             </div>
             <h1>Defending the Digital Frontier</h1>
             <p class="hero-subtitle">
@@ -560,10 +1431,7 @@
                     <div class="meta-label">Team</div>
                     <div class="meta-value">CyberGuardians</div>
                 </div>
-                <div class="meta-item">
-                    <div class="meta-label">Version</div>
-                    <div class="meta-value">v3.0.0-prod</div>
-                </div>
+                
             </div>
         </div>
         <div class="scroll-indicator">
@@ -637,348 +1505,325 @@
         </div>
     </section>
 
-    <!-- Footer / Project Info -->
-    <footer class="footer" id="project">
-        <div class="footer-grid">
-            <div class="footer-section">
-                <h3><span class="icon">🏗️</span> Architecture</h3>
-                <p>A full-stack cybersecurity education platform built with modern web technologies and real-time 3D visualization.</p>
-                <ul style="margin-top:0.8rem">
-                    <li>• Modular Flask backend with RESTful APIs</li>
-                    <li>• Vanilla ES6+ frontend, zero dependencies</li>
-                    <li>• WebGL 2.0 via Three.js r128</li>
-                    <li>• Containerized with Docker + Gunicorn</li>
-                </ul>
+    <!-- Footer / GitHub Project Info -->
+
+    
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PHISHING EMAIL INSPECTOR -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="phishing" class="game-section">
+        <div class="section-header">
+            <span class="section-label">04 — Email Security</span>
+            <h2>Phishing Email Inspector</h2>
+            <p>Inspect suspicious emails, analyze headers, domains, links, and attachments. Classify each message as Safe or Phishing to build your security score.</p>
+        </div>
+        <div class="game-wrap">
+            <div class="game-header">
+                <h3>📧 Inbox Simulator</h3>
+                <p>Select an email to inspect its details, then classify it correctly.</p>
             </div>
-            <div class="footer-section">
-                <h3><span class="icon">🔧</span> Tech Stack</h3>
-                <ul>
-                    <li><strong>Backend:</strong> Python 3.12 + Flask 3.0</li>
-                    <li><strong>Frontend:</strong> HTML5, CSS3, Vanilla ES6+</li>
-                    <li><strong>3D Engine:</strong> Three.js r128 (WebGL 2.0)</li>
-                    <li><strong>Typography:</strong> JetBrains Mono, Inter</li>
-                    <li><strong>API Style:</strong> RESTful JSON</li>
-                    <li><strong>Deployment:</strong> Docker / Gunicorn</li>
-                </ul>
+            <div class="game-score-bar">
+                <span class="game-score-label">Security Score</span>
+                <span class="game-score-value" id="phish-score">0%</span>
+                <div class="progress-track"><div class="progress-fill" id="phish-bar" style="width:0%;background:var(--cyan)"></div></div>
+                <span class="game-score-label" id="phish-count">0 / 6</span>
             </div>
-            <div class="footer-section">
-                <h3><span class="icon">📚</span> Documentation</h3>
-                <p>Comprehensive documentation in README.md including:</p>
-                <ul>
-                    <li>• Local development setup</li>
-                    <li>• REST API endpoint reference</li>
-                    <li>• Three.js scene graph architecture</li>
-                    <li>• CI/CD pipeline configuration</li>
-                </ul>
-                <p style="margin-top:1rem; color:var(--text-dim)">
-                    Built for Innovator's Arena STEM Fest 2026 — Cyber Security Track
-                </p>
+            <div class="inbox-list" id="inbox-list"></div>
+            <div class="email-detail" id="email-detail">
+                <div class="detail-header">
+                    <div class="detail-field"><label>From</label><span id="det-from"></span></div>
+                    <div class="detail-field"><label>Reply-To</label><span id="det-reply"></span></div>
+                    <div class="detail-field"><label>Domain</label><span id="det-domain"></span></div>
+                    <div class="detail-field"><label>Subject</label><span id="det-subj"></span></div>
+                </div>
+                <div class="detail-body" id="det-body"></div>
+                <div id="det-link-wrap"></div>
+                <div id="det-attach-wrap"></div>
+                <div class="phish-actions" style="margin-top:1.2rem">
+                    <button class="btn-success" onclick="classifyEmail('safe')">✓ Mark as Safe</button>
+                    <button class="btn-danger" onclick="classifyEmail('phishing')">⚠ Mark as Phishing</button>
+                </div>
             </div>
-            <div class="footer-section">
-                <h3><span class="icon">⚡</span> Features</h3>
-                <ul>
-                    <li>• Real-time WebGL 3D shield visualization</li>
-                    <li>• Interactive CIA Triad with live code tabs</li>
-                    <li>• Verified threat metrics with citations</li>
-                    <li>• Shannon entropy password analyzer</li>
-                    <li>• Pattern & dictionary vulnerability scan</li>
-                    <li>• Fully responsive dark-mode UI</li>
-                </ul>
+            <div id="phish-result" style="text-align:center;margin-top:1rem;display:none">
+                <p style="color:var(--text-secondary);font-size:0.9rem" id="phish-result-text"></p>
+                <button class="btn-secondary" onclick="resetPhishing()" style="margin-top:0.8rem">↻ Reset Inbox</button>
             </div>
         </div>
-        <div class="footer-bottom">
-            <div class="team-row">
-                <div class="team-member">
-                    <div class="team-avatar">AC</div>
-                    <span>Alex Chen — Lead Engineer</span>
-                </div>
-                <div class="team-member">
-                    <div class="team-avatar">MR</div>
-                    <span>Maria Rodriguez — UI/UX Lead</span>
-                </div>
-                <div class="team-member">
-                    <div class="team-avatar">JP</div>
-                    <span>James Park — Security Analyst</span>
-                </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- SQL INJECTION DEFENSE TERMINAL -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="sqli" class="game-section">
+        <div class="section-header">
+            <span class="section-label">05 — Database Security</span>
+            <h2>SQL Injection Defense Terminal</h2>
+            <p>Execute SQL injection payloads against a simulated login form. Toggle Prepared Statements to see how parameterized queries neutralize the attack.</p>
+        </div>
+        <div class="game-wrap">
+            <div class="game-header">
+                <h3>🛡️ SQLi Defense Lab</h3>
+                <p>Test payloads, observe data exfiltration, then enable protection.</p>
             </div>
-            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                <span class="version-tag">v3.0.0-prod</span>
-                <span>CyberGuardians © 2026 — Built for Innovator's Arena STEM Fest</span>
+            <div class="sqli-toggle">
+                <span style="font-size:0.85rem;color:var(--text-secondary);font-weight:600">Prepared Statements / Input Sanitization</span>
+                <div class="toggle-switch" id="sqli-toggle" onclick="toggleSQLiProtection()"></div>
+                <span id="sqli-status" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--accent-red);font-weight:700">OFF — Vulnerable</span>
+            </div>
+            <div class="sqli-payloads">
+                <span class="payload-chip" onclick='injectPayload("&#39; OR &#39;1&#39;=&#39;1")'>&#39; OR &#39;1&#39;=&#39;1</span>
+                <span class="payload-chip" onclick='injectPayload("&#39; OR &#39;1&#39;=&#39;1&#39; --")'>&#39; OR &#39;1&#39;=&#39;1&#39; --</span>
+                <span class="payload-chip" onclick='injectPayload("&#39; UNION SELECT * FROM users --")'>&#39; UNION SELECT * FROM users --</span>
+                <span class="payload-chip" onclick='injectPayload("admin&#39;--")'>admin&#39;--</span>
+                <span class="payload-chip" onclick='injectPayload("1&#39;; DROP TABLE users; --")'>1&#39;; DROP TABLE users; --</span>
+                <span class="payload-chip" onclick='injectPayload("&#39; OR 1=1 LIMIT 1 --")'>&#39; OR 1=1 LIMIT 1 --</span>
+            </div>
+            <div class="terminal-wrap">
+                <div class="terminal-header">
+                    <span class="term-dot red"></span>
+                    <span class="term-dot yellow"></span>
+                    <span class="term-dot green"></span>
+                    <span style="margin-left:0.5rem;font-size:0.75rem;color:var(--text-muted)">mysql@vulnerable-app:~$</span>
+                </div>
+                <div class="terminal-body" id="sqli-terminal"></div>
+                <div class="term-input-wrap">
+                    <span class="term-prompt">$</span>
+                    <input type="text" id="sqli-input" placeholder="Type payload or click chips above..." onkeydown="if(event.key==='Enter')injectPayload(this.value)">
+                </div>
             </div>
         </div>
-    </footer>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PORT SCANNER & FIREWALL RULE BUILDER -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="firewall" class="game-section">
+        <div class="section-header">
+            <span class="section-label">06 — Network Security</span>
+            <h2>Port Scanner & Firewall Rule Builder</h2>
+            <p>Simulated packet streams flow toward your server. Configure ALLOW or BLOCK rules for key ports to filter malicious traffic while keeping essential services alive.</p>
+        </div>
+        <div class="game-wrap">
+            <div class="game-header">
+                <h3>🌐 Network Traffic Controller</h3>
+                <p>Manage firewall rules. Block malicious ports, allow legitimate traffic.</p>
+            </div>
+            <div class="game-score-bar">
+                <span class="game-score-label">Network Health</span>
+                <span class="game-score-value" id="fw-health">100%</span>
+                <div class="progress-track"><div class="progress-fill" id="fw-bar" style="width:100%;background:var(--accent-green)"></div></div>
+                <span class="game-score-label" id="fw-status">Protected</span>
+            </div>
+            <div class="network-canvas" id="network-canvas">
+                <div class="server-box">🖥️</div>
+            </div>
+            <div class="firewall-grid" id="firewall-grid"></div>
+            <div class="fw-stats">
+                <div class="fw-stat"><div class="val" id="fw-allowed">0</div><div class="lbl">Allowed</div></div>
+                <div class="fw-stat"><div class="val" id="fw-blocked">0</div><div class="lbl">Blocked</div></div>
+                <div class="fw-stat"><div class="val" id="fw-malicious">0</div><div class="lbl">Malicious</div></div>
+                <div class="fw-stat"><div class="val" id="fw-uptime">100%</div><div class="lbl">Uptime</div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- CRYPTOGRAPHY CIPHER SANDBOX -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="crypto" class="game-section">
+        <div class="section-header">
+            <span class="section-label">07 — Cryptography</span>
+            <h2>Cryptography Cipher Sandbox</h2>
+            <p>Input secret messages and tweak live parameters to encrypt and decrypt using classical ciphers and simulated modern AES-256 with real-time hash visualization.</p>
+        </div>
+        <div class="game-wrap">
+            <div class="game-header">
+                <h3>🔑 Cipher Laboratory</h3>
+                <p>Type a message, choose a cipher, adjust parameters, and watch the transformation.</p>
+            </div>
+            <div class="crypto-tabs">
+                <button class="crypto-tab active" onclick="switchCryptoTab('caesar', this)">Caesar Cipher</button>
+                <button class="crypto-tab" onclick="switchCryptoTab('vigenere', this)">Vigenère Cipher</button>
+                <button class="crypto-tab" onclick="switchCryptoTab('aes', this)">Simulated AES-256</button>
+            </div>
+            <div class="crypto-input-wrap">
+                <textarea id="crypto-input" placeholder="Enter your secret message here..." oninput="runCrypto()">STEM FEST 2026 — CyberGuardians</textarea>
+            </div>
+            <div class="crypto-controls" id="crypto-controls">
+                <div class="crypto-control">
+                    <label>Shift (Caesar)</label>
+                    <input type="range" id="caesar-shift" min="1" max="25" value="7" oninput="runCrypto()">
+                    <div class="slider-val" id="caesar-val">Shift: 7</div>
+                </div>
+                <div class="crypto-control" id="vigenere-control" style="display:none">
+                    <label>Keyword (Vigenère)</label>
+                    <input type="text" id="vigenere-key" value="CYBER" maxlength="20" oninput="runCrypto()">
+                </div>
+                <div class="crypto-control" id="aes-control" style="display:none">
+                    <label>Key Size</label>
+                    <select id="aes-bits" onchange="runCrypto()">
+                        <option value="128">AES-128 (16 bytes)</option>
+                        <option value="192">AES-192 (24 bytes)</option>
+                        <option value="256" selected>AES-256 (32 bytes)</option>
+                    </select>
+                </div>
+                <div class="crypto-control">
+                    <label>Mode</label>
+                    <select id="crypto-mode" onchange="runCrypto()">
+                        <option value="encrypt">Encrypt</option>
+                        <option value="decrypt">Decrypt</option>
+                    </select>
+                </div>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:1px">Output</div>
+            <div class="crypto-output" id="crypto-output"></div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:1px">Hash Visualization (Simulated)</div>
+            <div class="hash-viz" id="hash-viz"></div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- SOC RANSOMWARE INCIDENT RESPONSE SIMULATOR -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="soc" class="game-section">
+        <div class="section-header">
+            <span class="section-label">08 — Incident Response</span>
+            <h2>SOC Ransomware Incident Response Simulator</h2>
+            <p>You are a Tier-1 SOC Analyst during an active ransomware outbreak. Make critical decisions each turn to contain the threat and minimize damage.</p>
+        </div>
+        <div class="game-wrap">
+            <div class="game-header">
+                <h3>🚨 Active Incident: Ransomware Outbreak</h3>
+                <p>Choose wisely. Every decision affects network containment and your final score.</p>
+            </div>
+            <div class="game-score-bar">
+                <span class="game-score-label">Containment</span>
+                <span class="game-score-value" id="soc-score">0%</span>
+                <div class="progress-track"><div class="progress-fill" id="soc-bar" style="width:0%;background:var(--accent-amber)"></div></div>
+                <span class="game-score-label" id="soc-turn">Turn 1 / 5</span>
+            </div>
+            <div class="soc-log" id="soc-log">
+                <span class="log-time">[22:14:33]</span> <span class="log-warn">ALERT:</span> EDR detected suspicious file encryption on WS-042<br>
+                <span class="log-time">[22:14:35]</span> <span class="log-err">CRITICAL:</span> Ransomware strain identified as LockBit 3.0 variant<br>
+                <span class="log-time">[22:14:38]</span> <span class="log-info">INFO:</span> 12 endpoints showing encryption activity — lateral movement suspected
+            </div>
+            <div id="soc-game-area">
+                <div class="soc-scenario" id="soc-scenario">
+                    <h4>🎯 Decision Point — Turn 1</h4>
+                    <p>The ransomware has been detected on workstation WS-042. Encryption is spreading to adjacent machines. What is your first action?</p>
+                    <div class="alert-box">⚠ Time-critical: Every minute of delay allows ~3 additional hosts to be encrypted.</div>
+                    <div class="soc-choices" id="soc-choices"></div>
+                </div>
+            </div>
+            <div id="soc-report" style="display:none">
+                <div class="soc-report">
+                    <h4>📋 Post-Incident Report</h4>
+                    <div class="report-score" id="report-score">0%</div>
+                    <div class="report-grade" id="report-grade">F</div>
+                    <p id="report-text"></p>
+                    <button class="btn-primary" onclick="resetSOC()" style="margin-top:1rem">↻ Run Another Simulation</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
 
     <script>
     // ═══════════════════════════════════════════════════════════════════
     // THREE.JS — INTERACTIVE 3D CYBER SECURITY SHIELD
-    // ═══════════════════════════════════════════════════════════════════
-        // ═══════════════════════════════════════════════════════════════════
-    // THREE.JS — ADVANCED SCI-FI CYBER-DEFENSE CORE
     // ═══════════════════════════════════════════════════════════════════
     (function initThreeJS() {
         const canvas = document.getElementById('three-canvas');
         if (!canvas) return;
 
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x05080f, 0.025);
+        scene.fog = new THREE.FogExp2(0x05080f, 0.035);
 
         const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 7.5);
+        camera.position.set(0, 0, 6.5);
 
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
 
-        // ─── ADVANCED LIGHTING RIG ───
-        const ambientLight = new THREE.AmbientLight(0x0a1628, 0.6);
-        scene.add(ambientLight);
+        // Lights
+        const ambient = new THREE.AmbientLight(0x00ffcc, 0.25);
+        scene.add(ambient);
+        const pLight1 = new THREE.PointLight(0x00ffcc, 1.2, 25);
+        pLight1.position.set(4, 4, 6);
+        scene.add(pLight1);
+        const pLight2 = new THREE.PointLight(0x5fffd4, 0.8, 25);
+        pLight2.position.set(-5, -3, 4);
+        scene.add(pLight2);
+        const pLight3 = new THREE.PointLight(0x00e676, 0.4, 20);
+        pLight3.position.set(0, -5, 3);
+        scene.add(pLight3);
 
-        const dirLightCyan = new THREE.DirectionalLight(0x22d3ee, 1.2);
-        dirLightCyan.position.set(5, 5, 8);
-        scene.add(dirLightCyan);
+        // ─── Central Shield (Outer Icosahedron) ───
+        const shieldGeo = new THREE.IcosahedronGeometry(2.0, 1);
+        const shieldMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.45
+        });
+        const shield = new THREE.Mesh(shieldGeo, shieldMat);
+        scene.add(shield);
 
-        const dirLightPurple = new THREE.DirectionalLight(0xa855f7, 0.8);
-        dirLightPurple.position.set(-5, -3, 6);
-        scene.add(dirLightPurple);
-
-        const corePointLight = new THREE.PointLight(0x22d3ee, 2.5, 20);
-        corePointLight.position.set(0, 0, 0);
-        scene.add(corePointLight);
-
-        const rimLight = new THREE.PointLight(0x5fffd4, 0.6, 15);
-        rimLight.position.set(0, 4, -2);
-        scene.add(rimLight);
-
-        // ─── MASTER ASSEMBLY GROUP ───
-        const assembly = new THREE.Group();
-        scene.add(assembly);
-
-        // ─── CENTRAL ENERGY CORE ───
-        const coreGeo = new THREE.IcosahedronGeometry(0.85, 2);
+        // ─── Inner Core ───
+        const coreGeo = new THREE.IcosahedronGeometry(1.15, 0);
         const coreMat = new THREE.MeshBasicMaterial({
-            color: 0x22d3ee,
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending
+            color: 0x5fffd4, wireframe: true, transparent: true, opacity: 0.25
         });
-        const energyCore = new THREE.Mesh(coreGeo, coreMat);
-        assembly.add(energyCore);
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
 
-        // Inner pulsing sphere
-        const innerCoreGeo = new THREE.IcosahedronGeometry(0.55, 1);
-        const innerCoreMat = new THREE.MeshBasicMaterial({
-            color: 0x67e8f9,
-            transparent: true,
-            opacity: 0.5,
-            blending: THREE.AdditiveBlending
-        });
-        const innerCore = new THREE.Mesh(innerCoreGeo, innerCoreMat);
-        assembly.add(innerCore);
-
-        // ─── MECHANICAL ARMOR SHELL (Nested Octahedrons + Dodecahedrons) ───
-        const shellGroup = new THREE.Group();
-        assembly.add(shellGroup);
-
-        // Outer wireframe octahedron shell
-        const shell1Geo = new THREE.OctahedronGeometry(1.55, 1);
-        const shell1Mat = new THREE.MeshBasicMaterial({
-            color: 0x0e7490,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.35,
-            blending: THREE.AdditiveBlending
-        });
-        const shell1 = new THREE.Mesh(shell1Geo, shell1Mat);
-        shellGroup.add(shell1);
-
-        // Dark chrome solid facets (dodecahedron)
-        const shell2Geo = new THREE.DodecahedronGeometry(1.35, 0);
-        const shell2Mat = new THREE.MeshBasicMaterial({
-            color: 0x1e293b,
-            transparent: true,
-            opacity: 0.45,
-            side: THREE.DoubleSide,
-            blending: THREE.NormalBlending
-        });
-        const shell2 = new THREE.Mesh(shell2Geo, shell2Mat);
-        shellGroup.add(shell2);
-
-        // Inner wireframe dodecahedron
-        const shell3Geo = new THREE.DodecahedronGeometry(1.15, 0);
-        const shell3Mat = new THREE.MeshBasicMaterial({
-            color: 0x22d3ee,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.2,
-            blending: THREE.AdditiveBlending
-        });
-        const shell3 = new THREE.Mesh(shell3Geo, shell3Mat);
-        shellGroup.add(shell3);
-
-        // Corner nodes on octahedron
-        const cornerPositions = [
-            [1.55, 0, 0], [-1.55, 0, 0],
-            [0, 1.55, 0], [0, -1.55, 0],
-            [0, 0, 1.55], [0, 0, -1.55]
-        ];
-        cornerPositions.forEach(pos => {
-            const nodeGeo = new THREE.SphereGeometry(0.08, 8, 8);
-            const nodeMat = new THREE.MeshBasicMaterial({
-                color: 0x22d3ee,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending
-            });
-            const node = new THREE.Mesh(nodeGeo, nodeMat);
-            node.position.set(...pos);
-            shellGroup.add(node);
-        });
-
-        // ─── ORBITAL GIMBAL RINGS ───
+        // ─── Protective Torus Rings ───
         const rings = [];
-
-        function createGimbalRing(radius, tube, color, rotX, rotY, rotZ, speed, nodeCount) {
-            const group = new THREE.Group();
-
-            // Main ring
-            const ringGeo = new THREE.TorusGeometry(radius, tube, 24, 120);
-            const ringMat = new THREE.MeshBasicMaterial({
-                color: color,
-                transparent: true,
-                opacity: 0.4,
-                blending: THREE.AdditiveBlending,
-                side: THREE.DoubleSide
-            });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            group.add(ring);
-
-            // Segmented tick marks (inner ring detail)
-            const tickGeo = new THREE.TorusGeometry(radius, tube * 0.4, 8, 120);
-            const tickMat = new THREE.MeshBasicMaterial({
-                color: color,
-                transparent: true,
-                opacity: 0.15,
-                blending: THREE.AdditiveBlending
-            });
-            const tickRing = new THREE.Mesh(tickGeo, tickMat);
-            group.add(tickRing);
-
-            // Defense nodes / satellites
-            for (let i = 0; i < nodeCount; i++) {
-                const angle = (i / nodeCount) * Math.PI * 2;
-                const nodeGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-                const nodeMat = new THREE.MeshBasicMaterial({
-                    color: 0x67e8f9,
-                    transparent: true,
-                    opacity: 0.7,
-                    blending: THREE.AdditiveBlending
-                });
-                const node = new THREE.Mesh(nodeGeo, nodeMat);
-                node.position.set(
-                    Math.cos(angle) * radius,
-                    Math.sin(angle) * radius,
-                    0
-                );
-                // Small antenna on each node
-                const antGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2, 4);
-                const antMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.5 });
-                const antenna = new THREE.Mesh(antGeo, antMat);
-                antenna.position.y = 0.1;
-                node.add(antenna);
-                group.add(node);
-            }
-
-            group.rotation.set(rotX, rotY, rotZ);
-            assembly.add(group);
-            return { group, speed, baseRot: { x: rotX, y: rotY, z: rotZ } };
-        }
-
-        rings.push(createGimbalRing(2.4, 0.025, 0x22d3ee, 0, 0, 0, 0.006, 8));
-        rings.push(createGimbalRing(3.1, 0.018, 0xa855f7, Math.PI / 2.5, Math.PI / 4, 0, 0.004, 12));
-        rings.push(createGimbalRing(3.8, 0.012, 0x5fffd4, Math.PI / 3, -Math.PI / 6, Math.PI / 8, 0.0025, 16));
-
-        // Counter-rotating outer ring segments
-        const outerRingGeo = new THREE.TorusGeometry(4.5, 0.008, 8, 200);
-        const outerRingMat = new THREE.MeshBasicMaterial({
-            color: 0x0e7490,
-            transparent: true,
-            opacity: 0.12,
-            blending: THREE.AdditiveBlending
+        const ringConfigs = [
+            { radius: 2.8, tube: 0.015, rotX: 0, rotY: 0, rotZ: 0, speed: 0.004, color: 0x00ffcc, opacity: 0.25 },
+            { radius: 3.3, tube: 0.012, rotX: Math.PI/3, rotY: Math.PI/6, rotZ: 0, speed: 0.003, color: 0x00e676, opacity: 0.15 },
+            { radius: 3.9, tube: 0.01, rotX: Math.PI/4, rotY: -Math.PI/5, rotZ: Math.PI/8, speed: 0.002, color: 0x5fffd4, opacity: 0.1 }
+        ];
+        ringConfigs.forEach(cfg => {
+            const geo = new THREE.TorusGeometry(cfg.radius, cfg.tube, 16, 100);
+            const mat = new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: cfg.opacity });
+            const ring = new THREE.Mesh(geo, mat);
+            ring.rotation.set(cfg.rotX, cfg.rotY, cfg.rotZ);
+            scene.add(ring);
+            rings.push({ mesh: ring, speed: cfg.speed, baseRot: { x: cfg.rotX, y: cfg.rotY, z: cfg.rotZ } });
         });
-        const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
-        outerRing.rotation.x = Math.PI / 2.2;
-        assembly.add(outerRing);
 
-        // ─── PARTICLE FIELD (300+ floating particles) ───
-        const pCount = 400;
+        // ─── Orbital Particle Cloud ───
+        const pCount = 300;
         const pGeo = new THREE.BufferGeometry();
         const pPos = new Float32Array(pCount * 3);
-        const pSizes = new Float32Array(pCount);
         const pVel = [];
         for (let i = 0; i < pCount; i++) {
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const r = 2.5 + Math.random() * 3.0;
+            const r = 2.8 + Math.random() * 2.2;
             pPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
             pPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
             pPos[i*3+2] = r * Math.cos(phi);
-            pSizes[i] = 0.015 + Math.random() * 0.025;
             pVel.push({
-                x: (Math.random()-0.5)*0.003,
-                y: (Math.random()-0.5)*0.003,
-                z: (Math.random()-0.5)*0.003,
-                baseR: r
+                x: (Math.random()-0.5)*0.004,
+                y: (Math.random()-0.5)*0.004,
+                z: (Math.random()-0.5)*0.004
             });
         }
         pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-        pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1));
         const pMat = new THREE.PointsMaterial({
-            color: 0x22d3ee,
-            size: 0.04,
-            transparent: true,
-            opacity: 0.7,
-            blending: THREE.AdditiveBlending,
-            sizeAttenuation: true
+            color: 0x00ffcc, size: 0.028, transparent: true, opacity: 0.75,
+            blending: THREE.AdditiveBlending, sizeAttenuation: true
         });
         const particleSystem = new THREE.Points(pGeo, pMat);
         scene.add(particleSystem);
 
-        // ─── DATA STREAM LINES ───
-        const streamCount = 24;
-        const streams = [];
-        for (let i = 0; i < streamCount; i++) {
-            const angle = (i / streamCount) * Math.PI * 2;
-            const points = [];
-            const segments = 20;
-            for (let j = 0; j <= segments; j++) {
-                const t = j / segments;
-                const r = 0.9 + t * 3.2;
-                const wobble = Math.sin(t * Math.PI * 3) * 0.15;
-                points.push(new THREE.Vector3(
-                    Math.cos(angle + t * 0.5) * r + wobble,
-                    Math.sin(angle + t * 0.5) * r + wobble * 0.5,
-                    (Math.random() - 0.5) * 0.5 * t
-                ));
-            }
-            const streamGeo = new THREE.BufferGeometry().setFromPoints(points);
-            const streamMat = new THREE.LineBasicMaterial({
-                color: 0x22d3ee,
-                transparent: true,
-                opacity: 0.08 + Math.random() * 0.12,
-                blending: THREE.AdditiveBlending
-            });
-            const line = new THREE.Line(streamGeo, streamMat);
-            scene.add(line);
-            streams.push({ line, angle, speed: 0.3 + Math.random() * 0.4 });
-        }
-
-        // ─── INTERACTION STATE ───
+        // ─── Interaction State ───
         let mouseX = 0, mouseY = 0;
         let targetRotX = 0, targetRotY = 0;
         let scrollBoost = 0;
         let pulseActive = false, pulseT = 0;
-        let shockwaveActive = false, shockwaveT = 0;
 
         document.addEventListener('mousemove', e => {
             mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -986,44 +1831,27 @@
         });
 
         document.addEventListener('scroll', () => {
-            scrollBoost = Math.min(scrollBoost + 0.1, 0.8);
+            scrollBoost = Math.min(scrollBoost + 0.08, 0.6);
         }, { passive: true });
 
-        // ─── CLICK DEFENSIVE PULSE ───
+        // Click pulse + shockwave rings
         document.addEventListener('click', e => {
             if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
             pulseActive = true; pulseT = 0;
-            shockwaveActive = true; shockwaveT = 0;
 
-            // Flash core light
-            corePointLight.intensity = 8.0;
-
-            // Burst particles outward
-            for (let i = 0; i < 60; i++) {
-                const bGeo = new THREE.SphereGeometry(0.03 + Math.random() * 0.04, 6, 6);
-                const bMat = new THREE.MeshBasicMaterial({
-                    color: Math.random() > 0.5 ? 0x22d3ee : 0x67e8f9,
-                    transparent: true,
-                    opacity: 1,
-                    blending: THREE.AdditiveBlending
-                });
+            // Burst particles
+            for (let i = 0; i < 40; i++) {
+                const bGeo = new THREE.SphereGeometry(0.04, 6, 6);
+                const bMat = new THREE.MeshBasicMaterial({ color: 0x5fffd4, transparent: true, opacity: 1 });
                 const burst = new THREE.Mesh(bGeo, bMat);
-                burst.position.copy(energyCore.position);
-                const dir = new THREE.Vector3(
-                    Math.random()-0.5,
-                    Math.random()-0.5,
-                    Math.random()-0.5
-                ).normalize();
-                burst.userData.vel = dir.multiplyScalar(0.12 + Math.random() * 0.18);
-                burst.userData.returnSpeed = 0.02 + Math.random() * 0.03;
+                burst.position.copy(shield.position);
+                const dir = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
+                burst.userData.vel = dir.multiplyScalar(0.15 + Math.random() * 0.2);
                 scene.add(burst);
                 const anim = () => {
                     burst.position.add(burst.userData.vel);
-                    burst.userData.vel.multiplyScalar(0.94);
-                    // Pull back toward center
-                    const toCenter = new THREE.Vector3(0,0,0).sub(burst.position).multiplyScalar(burst.userData.returnSpeed);
-                    burst.userData.vel.add(toCenter);
-                    burst.material.opacity -= 0.012;
+                    burst.userData.vel.multiplyScalar(0.96);
+                    burst.material.opacity -= 0.018;
                     if (burst.material.opacity > 0) requestAnimationFrame(anim);
                     else { scene.remove(burst); burst.geometry.dispose(); burst.material.dispose(); }
                 };
@@ -1031,97 +1859,61 @@
             }
 
             // Shockwave rings
-            for (let i = 0; i < 4; i++) {
-                const swGeo = new THREE.RingGeometry(0.1, 0.2, 80);
+            for (let i = 0; i < 3; i++) {
+                const swGeo = new THREE.RingGeometry(0.1, 0.15, 64);
                 const swMat = new THREE.MeshBasicMaterial({
-                    color: i % 2 === 0 ? 0x22d3ee : 0xa855f7,
-                    transparent: true,
-                    opacity: 0.5,
-                    side: THREE.DoubleSide,
-                    blending: THREE.AdditiveBlending
+                    color: 0x00ffcc, transparent: true, opacity: 0.6,
+                    side: THREE.DoubleSide
                 });
                 const sw = new THREE.Mesh(swGeo, swMat);
-                sw.position.copy(energyCore.position);
+                sw.position.copy(shield.position);
                 sw.lookAt(camera.position);
                 scene.add(sw);
                 const swAnim = () => {
-                    const s = sw.scale.x + 0.15;
+                    const s = sw.scale.x + 0.12;
                     sw.scale.setScalar(s);
-                    sw.material.opacity -= 0.01;
+                    sw.material.opacity -= 0.012;
                     if (sw.material.opacity > 0) requestAnimationFrame(swAnim);
                     else { scene.remove(sw); sw.geometry.dispose(); sw.material.dispose(); }
                 };
-                setTimeout(() => swAnim(), i * 100);
+                setTimeout(() => swAnim(), i * 120);
             }
         });
 
-        // ─── ANIMATION LOOP ───
+        // ─── Animation Loop ───
         let time = 0;
         function animate() {
             requestAnimationFrame(animate);
             time += 0.012;
 
             // Decay scroll boost
-            scrollBoost *= 0.95;
-            const speedMult = 1 + scrollBoost * 4;
+            scrollBoost *= 0.96;
 
-            // Smooth mouse tracking with momentum/damping
-            targetRotX = mouseY * 0.4;
-            targetRotY = mouseX * 0.4;
-            assembly.rotation.x += (targetRotX - assembly.rotation.x) * 0.035;
-            assembly.rotation.y += (targetRotY - assembly.rotation.y) * 0.035;
+            // Mouse-driven rotation with lerp
+            targetRotX = mouseY * 0.35;
+            targetRotY = mouseX * 0.35;
+            const speedMult = 1 + scrollBoost * 3;
+            shield.rotation.x += ((targetRotX - shield.rotation.x) * 0.04 + 0.003) * speedMult;
+            shield.rotation.y += ((targetRotY - shield.rotation.y) * 0.04 + 0.005) * speedMult;
 
-            // Energy core pulse
-            const pulseScale = 1 + Math.sin(time * 2.5) * 0.08;
-            energyCore.scale.setScalar(pulseScale);
-            innerCore.scale.setScalar(pulseScale * 0.9);
+            // Core counter-rotation
+            core.rotation.x -= 0.004 * speedMult;
+            core.rotation.y -= 0.006 * speedMult;
 
-            // Core light flicker
-            corePointLight.intensity += (2.5 - corePointLight.intensity) * 0.05;
-            corePointLight.intensity += (Math.random() - 0.5) * 0.15;
-
-            // Shell rotation
-            shell1.rotation.y += 0.003 * speedMult;
-            shell1.rotation.x += 0.001 * speedMult;
-            shell2.rotation.y -= 0.002 * speedMult;
-            shell3.rotation.y += 0.004 * speedMult;
-            shell3.rotation.z += 0.001 * speedMult;
-
-            // Gimbal rings
-            rings.forEach((r, idx) => {
-                r.group.rotation.z += r.speed * speedMult;
-                r.group.rotation.x = r.baseRot.x + Math.sin(time * 0.4 + idx) * 0.06;
-                r.group.rotation.y = r.baseRot.y + Math.cos(time * 0.3 + idx) * 0.04;
-            });
-
-            // Outer counter-rotating ring
-            outerRing.rotation.z -= 0.001 * speedMult;
-
-            // Defensive pulse effect
+            // Pulse effect
             if (pulseActive) {
-                pulseT += 0.1;
-                const s = 1 + Math.sin(pulseT) * 0.3 * Math.exp(-pulseT * 0.4);
-                shellGroup.scale.setScalar(s);
-                energyCore.material.opacity = 0.9 + Math.sin(pulseT * 3) * 0.3;
-                if (pulseT > 8) {
-                    pulseActive = false;
-                    shellGroup.scale.setScalar(1);
-                    energyCore.material.opacity = 0.9;
-                }
+                pulseT += 0.12;
+                const s = 1 + Math.sin(pulseT) * 0.25 * Math.exp(-pulseT * 0.45);
+                shield.scale.setScalar(s);
+                shieldMat.opacity = 0.45 + Math.sin(pulseT * 2) * 0.25;
+                if (pulseT > 6) { pulseActive = false; shield.scale.setScalar(1); shieldMat.opacity = 0.45; }
             }
 
-            // Shockwave ring expansion
-            if (shockwaveActive) {
-                shockwaveT += 0.08;
-                rings.forEach(r => {
-                    const expand = 1 + Math.sin(shockwaveT) * 0.15 * Math.exp(-shockwaveT * 0.5);
-                    r.group.scale.setScalar(expand);
-                });
-                if (shockwaveT > 6) {
-                    shockwaveActive = false;
-                    rings.forEach(r => r.group.scale.setScalar(1));
-                }
-            }
+            // Rings
+            rings.forEach(r => {
+                r.mesh.rotation.z += r.speed * speedMult;
+                r.mesh.rotation.x = r.baseRot.x + Math.sin(time * 0.5) * 0.05;
+            });
 
             // Particles
             const posArr = particleSystem.geometry.attributes.position.array;
@@ -1130,34 +1922,17 @@
                 posArr[i*3+1] += pVel[i].y;
                 posArr[i*3+2] += pVel[i].z;
                 const d = Math.sqrt(posArr[i*3]**2 + posArr[i*3+1]**2 + posArr[i*3+2]**2);
-                if (d > 7 || d < 1.5) {
+                if (d > 6) {
                     const th = Math.random() * Math.PI * 2;
                     const ph = Math.acos(2 * Math.random() - 1);
-                    const rad = pVel[i].baseR;
+                    const rad = 2.8 + Math.random() * 1.5;
                     posArr[i*3] = rad * Math.sin(ph) * Math.cos(th);
                     posArr[i*3+1] = rad * Math.sin(ph) * Math.sin(th);
                     posArr[i*3+2] = rad * Math.cos(ph);
                 }
             }
             particleSystem.geometry.attributes.position.needsUpdate = true;
-            particleSystem.rotation.y += 0.0006 * speedMult;
-
-            // Data streams
-            streams.forEach((stream, idx) => {
-                stream.angle += stream.speed * 0.005 * speedMult;
-                const positions = stream.line.geometry.attributes.position.array;
-                const segments = 20;
-                for (let j = 0; j <= segments; j++) {
-                    const t = j / segments;
-                    const r = 0.9 + t * 3.2;
-                    const wobble = Math.sin(t * Math.PI * 3 + time * 2 + idx) * 0.15;
-                    positions[j*3] = Math.cos(stream.angle + t * 0.5) * r + wobble;
-                    positions[j*3+1] = Math.sin(stream.angle + t * 0.5) * r + wobble * 0.5;
-                    positions[j*3+2] = Math.sin(time + idx + t * 3) * 0.3 * t;
-                }
-                stream.line.geometry.attributes.position.needsUpdate = true;
-                stream.line.material.opacity = 0.08 + Math.sin(time * 2 + idx) * 0.06;
-            });
+            particleSystem.rotation.y += 0.0008 * speedMult;
 
             renderer.render(scene, camera);
         }
@@ -1461,7 +2236,7 @@ breaker = CircuitBreaker(threshold=3, timeout=10)
         }
 
         // Repeated characters
-        if (/(.)(?=.*.*)/.test(pwd)) {
+        if (/(.)\1{2,}/.test(pwd)) {
             issues.push({type:'warning', text:"Repeated character sequences detected"});
         }
 
@@ -1522,7 +2297,7 @@ breaker = CircuitBreaker(threshold=3, timeout=10)
         set('chk-lower', /[a-z]/.test(pwd));
         set('chk-digit', /[0-9]/.test(pwd));
         set('chk-special', /[^a-zA-Z0-9]/.test(pwd));
-        set('chk-norepeat', !/(.)(?=.*.*)/.test(pwd));
+        set('chk-norepeat', !/(.)\1{2,}/.test(pwd));
         let hasDict = false;
         for (const w of commonWords) { if (pwd.toLowerCase().includes(w)) { hasDict = true; break; } }
         set('chk-nodict', !hasDict);
@@ -1558,6 +2333,575 @@ breaker = CircuitBreaker(threshold=3, timeout=10)
             if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // PHISHING EMAIL INSPECTOR
+    // ═══════════════════════════════════════════════════════════════════
+    const phishingEmails = [
+        {
+            id: 1, from: "IT Support <it-support@company-secure.com>",
+            replyTo: "it-support@company-secure.com",
+            domain: "company-secure.com", subject: "Password Expiration Notice",
+            body: "Your password will expire in 24 hours. Click the link below to reset it immediately and avoid account lockout.",
+            link: "https://company-secure.com/reset-password", linkSafe: true,
+            attachment: null, isPhishing: false,
+            hints: ["Domain matches company name", "No urgency language", "HTTPS secure link"]
+        },
+        {
+            id: 2, from: "PayPal <service@paypa1.com>",
+            replyTo: "service@paypa1.com",
+            domain: "paypa1.com", subject: "Unauthorized Transaction Detected",
+            body: "We noticed unusual activity on your account. Confirm your identity by clicking below or your account will be suspended within 2 hours.",
+            link: "http://paypa1.com/verify-account", linkSafe: false,
+            attachment: null, isPhishing: true,
+            hints: ["Domain is 'paypa1.com' (number 1 instead of letter l)", "Urgency and threat language", "HTTP not HTTPS"]
+        },
+        {
+            id: 3, from: "Amazon <no-reply@amazon.com>",
+            replyTo: "no-reply@amazon.com",
+            domain: "amazon.com", subject: "Your Order #112-3948573-8293847 Has Shipped",
+            body: "Your recent order has been shipped and will arrive on August 25. Track your package using the link below.",
+            link: "https://www.amazon.com/gp/orders", linkSafe: true,
+            attachment: null, isPhishing: false,
+            hints: ["Legitimate Amazon domain", "Specific order number", "No urgency threats"]
+        },
+        {
+            id: 4, from: "Netflix <billing@netflix-security.co>",
+            replyTo: "billing@netflix-security.co",
+            domain: "netflix-security.co", subject: "Payment Failed — Update Billing Info",
+            body: "Your monthly payment could not be processed. Update your payment method within 24 hours or your subscription will be cancelled and all viewing history deleted.",
+            link: "http://netflix-security.co/billing-update", linkSafe: false,
+            attachment: "Invoice_Aug2026.pdf.exe", isPhishing: true,
+            hints: ["Suspicious domain 'netflix-security.co'", "Threat of data deletion", "Executable attachment (.exe)", "HTTP link"]
+        },
+        {
+            id: 5, from: "HR Department <hr@cyberguardians.org>",
+            replyTo: "hr@cyberguardians.org",
+            domain: "cyberguardians.org", subject: "Q3 Benefits Enrollment Open",
+            body: "Q3 benefits enrollment is now open. Please review the attached guide and submit your selections by September 15.",
+            link: null, linkSafe: true,
+            attachment: "Q3_Benefits_Guide.pdf", isPhishing: false,
+            hints: ["Internal company domain", "Reasonable deadline", "Standard PDF attachment"]
+        },
+        {
+            id: 6, from: "DHL Express <tracking@dhl-express-delivery.net>",
+            replyTo: "tracking@dhl-express-delivery.net",
+            domain: "dhl-express-delivery.net", subject: "Urgent: Package Delivery Failed",
+            body: "We attempted to deliver your package but no one was available. You must reschedule delivery within 12 hours or the package will be returned to sender. Click to reschedule now.",
+            link: "http://dhl-express-delivery.net/reschedule?ref=urgent", linkSafe: false,
+            attachment: "Delivery_Receipt.docm", isPhishing: true,
+            hints: ["Unofficial DHL domain", "Urgency language ('within 12 hours')", "Macro-enabled Word doc (.docm)", "HTTP link with suspicious query"]
+        }
+    ];
+
+    let phishState = { current: null, answered: new Set(), correct: 0 };
+
+    function renderInbox() {
+        const list = document.getElementById('inbox-list');
+        list.innerHTML = '';
+        phishingEmails.forEach((email, idx) => {
+            const row = document.createElement('div');
+            row.className = 'email-row' + (phishState.answered.has(email.id) ? ' answered' : '');
+            row.dataset.id = email.id;
+            row.onclick = () => selectEmail(email.id);
+            let statusClass = 'status-pending', statusText = 'Pending';
+            if (phishState.answered.has(email.id)) {
+                const wasCorrect = localStorage.getItem('phish_' + email.id) === (email.isPhishing ? 'phishing' : 'safe');
+                statusClass = wasCorrect ? 'status-correct' : 'status-wrong';
+                statusText = wasCorrect ? '✓ Correct' : '✗ Wrong';
+            }
+            row.innerHTML = `
+                <div class="email-icon">${email.isPhishing ? '📧' : '📨'}</div>
+                <div>
+                    <div class="email-from">${email.from}</div>
+                    <div class="email-subj">${email.subject}</div>
+                </div>
+                <div class="email-time">${10 - idx * 2}m ago</div>
+                <div class="email-status ${statusClass}">${statusText}</div>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    function selectEmail(id) {
+        const email = phishingEmails.find(e => e.id === id);
+        if (!email) return;
+        phishState.current = email;
+        document.querySelectorAll('.email-row').forEach(r => r.classList.remove('selected'));
+        document.querySelector(`.email-row[data-id="${id}"]`).classList.add('selected');
+        const det = document.getElementById('email-detail');
+        det.classList.add('active');
+        document.getElementById('det-from').textContent = email.from;
+        document.getElementById('det-from').className = email.from.includes('@') && !email.from.includes(email.domain) ? 'suspicious' : '';
+        document.getElementById('det-reply').textContent = email.replyTo;
+        const fromMatch = email.from.match(/<([^>]+)>/);
+        const fromAddr = fromMatch ? fromMatch[1] : email.from;
+        document.getElementById('det-reply').className = email.replyTo !== fromAddr ? 'suspicious' : '';
+        document.getElementById('det-domain').innerHTML = email.domain.includes('paypa1') || email.domain.includes('netflix-security') || email.domain.includes('dhl-express-delivery') ? `<span class="suspicious">${email.domain} ⚠ Suspicious</span>` : `<span class="safe">${email.domain} ✓ Verified</span>`;
+        document.getElementById('det-subj').textContent = email.subject;
+        document.getElementById('det-body').textContent = email.body;
+        const linkWrap = document.getElementById('det-link-wrap');
+        linkWrap.innerHTML = email.link ? `<div class="detail-field"><label>Link</label><span class="detail-link ${email.linkSafe ? 'safe' : 'suspicious'}">${email.link}</span></div>` : '';
+        const attachWrap = document.getElementById('det-attach-wrap');
+        attachWrap.innerHTML = email.attachment ? `<div class="detail-field"><label>Attachment</label><span class="detail-attachment">📎 ${email.attachment}</span></div>` : '';
+    }
+
+    function classifyEmail(choice) {
+        if (!phishState.current || phishState.answered.has(phishState.current.id)) return;
+        const email = phishState.current;
+        const correct = (choice === 'phishing' && email.isPhishing) || (choice === 'safe' && !email.isPhishing);
+        phishState.answered.add(email.id);
+        localStorage.setItem('phish_' + email.id, choice);
+        if (correct) phishState.correct++;
+        updatePhishScore();
+        renderInbox();
+        // Show result
+        const result = document.getElementById('phish-result');
+        const resultText = document.getElementById('phish-result-text');
+        result.style.display = 'block';
+        if (correct) {
+            resultText.innerHTML = `<span style="color:var(--accent-green)">✓ Correct!</span> ${email.isPhishing ? 'This was indeed a phishing attempt.' : 'This email is legitimate.'}`;
+        } else {
+            resultText.innerHTML = `<span style="color:var(--accent-red)">✗ Incorrect.</span> ${email.isPhishing ? 'This WAS a phishing email. Watch for suspicious domains and urgency.' : 'This was actually SAFE. Look again at the verified domain.'}`;
+        }
+        if (phishState.answered.size === phishingEmails.length) {
+            resultText.innerHTML += `<br><br><strong style="color:var(--cyan)">Final Score: ${Math.round((phishState.correct / phishingEmails.length) * 100)}%</strong> — ${phishState.correct === phishingEmails.length ? 'Perfect! You are a phishing detection expert.' : 'Review the hints to improve your detection skills.'}`;
+        }
+    }
+
+    function updatePhishScore() {
+        const pct = Math.round((phishState.correct / phishingEmails.length) * 100);
+        document.getElementById('phish-score').textContent = pct + '%';
+        document.getElementById('phish-bar').style.width = pct + '%';
+        document.getElementById('phish-count').textContent = phishState.answered.size + ' / ' + phishingEmails.length;
+    }
+
+    function resetPhishing() {
+        phishState = { current: null, answered: new Set(), correct: 0 };
+        phishingEmails.forEach(e => localStorage.removeItem('phish_' + e.id));
+        document.getElementById('email-detail').classList.remove('active');
+        document.getElementById('phish-result').style.display = 'none';
+        renderInbox();
+    }
+    renderInbox();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SQL INJECTION DEFENSE TERMINAL
+    // ═══════════════════════════════════════════════════════════════════
+    let sqliProtected = false;
+    const sqliDB = {
+        users: [
+            { id: 1, username: "admin", password: "[REDACTED]", role: "admin", email: "admin@corp.net" },
+            { id: 2, username: "jsmith", password: "Summer2024!", role: "user", email: "jsmith@corp.net" },
+            { id: 3, username: "dlee", password: "P@ssw0rd123", role: "user", email: "dlee@corp.net" },
+            { id: 4, username: "awalker", password: "Qwerty!99", role: "analyst", email: "awalker@corp.net" },
+            { id: 5, username: "root", password: "[REDACTED]", role: "superuser", email: "root@corp.net" }
+        ]
+    };
+
+    function logTerminal(text, type = 'output') {
+        const term = document.getElementById('sqli-terminal');
+        const line = document.createElement('div');
+        line.className = 'term-line term-' + type;
+        line.innerHTML = type === 'prompt' ? `<span class="term-prompt">$</span> <span class="term-cmd">${text}</span>` : text;
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+    }
+
+    function toggleSQLiProtection() {
+        sqliProtected = !sqliProtected;
+        document.getElementById('sqli-toggle').classList.toggle('active', sqliProtected);
+        const status = document.getElementById('sqli-status');
+        status.textContent = sqliProtected ? 'ON — Protected' : 'OFF — Vulnerable';
+        status.style.color = sqliProtected ? 'var(--accent-green)' : 'var(--accent-red)';
+        logTerminal(sqliProtected ? '>>> Prepared Statements ENABLED. Input is now parameterized.' : '>>> Prepared Statements DISABLED. Raw SQL execution active.', sqliProtected ? 'success' : 'warn');
+    }
+
+    function injectPayload(payload) {
+        if (!payload.trim()) return;
+        logTerminal(payload, 'prompt');
+        document.getElementById('sqli-input').value = '';
+
+        if (sqliProtected) {
+            logTerminal('Query: SELECT * FROM users WHERE username = ? AND password = ?', 'output');
+            logTerminal(`Parameters: ['${payload.replace(/'/g, "\\'")}', "[hashed_password]"]`, "output");
+            logTerminal('Result: <span class="term-warn">0 rows returned</span> — Parameterized query prevented injection.', 'output');
+            logTerminal('───────────────────────────────', 'output');
+            return;
+        }
+
+        logTerminal("Query: SELECT * FROM users WHERE username = '" + payload + "' AND password = '...'", "output");
+
+        // Simulate vulnerable behavior
+        const lower = payload.toLowerCase();
+        if (lower.includes("' or '1'='1") || lower.includes("'or'1'='1") || lower.includes("or 1=1")) {
+            logTerminal('Result: <span class="term-err">AUTHENTICATION BYPASSED — ' + sqliDB.users.length + ' user records exfiltrated!</span>', 'error');
+            sqliDB.users.forEach(u => {
+                logTerminal(`  → ID:${u.id} | User:${u.username} | Role:${u.role} | Email:${u.email} | Pwd:${u.password}`, 'output');
+            });
+        } else if (lower.includes("union select")) {
+            logTerminal('Result: <span class="term-err">DATA EXFILTRATION — Union-based injection successful!</span>', 'error');
+            logTerminal('  → Dumped schema: users(id, username, password, role, email)', 'output');
+            sqliDB.users.forEach(u => logTerminal(`  → ${u.username} | ${u.password} | ${u.role}`, 'output'));
+        } else if (lower.includes("drop table")) {
+            logTerminal(`Result: <span class='term-err'>DATABASE DESTROYED — Table "users" dropped!</span>`, "error");
+            logTerminal('  → All authentication data lost. Application is down.', 'output');
+        } else if (lower.includes("admin'--")) {
+            logTerminal('Result: <span class="term-err">ADMIN ACCESS GRANTED — Comment injection bypassed password check!</span>', 'error');
+            logTerminal('  → Logged in as: admin (superuser privileges)', 'output');
+        } else {
+            logTerminal('Result: <span class="term-warn">0 rows returned</span> — Payload did not match known vulnerable pattern.', 'output');
+        }
+        logTerminal('───────────────────────────────', 'output');
+    }
+
+    // Initial terminal message
+    logTerminal('MySQL Monitor  v8.0.33  —  Vulnerable App Login Form', 'output');
+    logTerminal('Type a payload or click a chip above to test injection.', 'output');
+    logTerminal('───────────────────────────────', 'output');
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PORT SCANNER & FIREWALL RULE BUILDER
+    // ═══════════════════════════════════════════════════════════════════
+    const fwRules = [
+        { port: 80, service: 'HTTP', protocol: 'http', allowed: true, essential: true },
+        { port: 443, service: 'HTTPS', protocol: 'http', allowed: true, essential: true },
+        { port: 22, service: 'SSH', protocol: 'ssh', allowed: true, essential: true },
+        { port: 3389, service: 'RDP', protocol: 'rdp', allowed: false, essential: false, malicious: true }
+    ];
+    let fwStats = { allowed: 0, blocked: 0, malicious: 0, uptime: 100 };
+    let packetInterval = null;
+
+    function renderFirewall() {
+        const grid = document.getElementById('firewall-grid');
+        grid.innerHTML = '';
+        fwRules.forEach((rule, idx) => {
+            const card = document.createElement('div');
+            card.className = 'fw-rule';
+            card.innerHTML = `
+                <div class="fw-port">:${rule.port}</div>
+                <div class="fw-service">${rule.service}</div>
+                <div class="fw-status ${rule.allowed ? 'fw-allow' : 'fw-block'}">${rule.allowed ? 'ALLOW' : 'BLOCK'}</div>
+                <button class="fw-toggle-btn btn-secondary" onclick="toggleFirewallRule(${idx})">${rule.allowed ? 'Block Port' : 'Allow Port'}</button>
+            `;
+            grid.appendChild(card);
+        });
+        updateFirewallStats();
+    }
+
+    function toggleFirewallRule(idx) {
+        fwRules[idx].allowed = !fwRules[idx].allowed;
+        renderFirewall();
+    }
+
+    function updateFirewallStats() {
+        const canvas = document.getElementById('network-canvas');
+        // Remove old stats text if any
+        const oldStats = canvas.querySelector('.fw-overlay-stats');
+        if (oldStats) oldStats.remove();
+    }
+
+    function spawnPacket() {
+        const canvas = document.getElementById('network-canvas');
+        if (!canvas || canvas.offsetWidth < 100) return;
+        const rule = fwRules[Math.floor(Math.random() * fwRules.length)];
+        const packet = document.createElement('div');
+        packet.className = 'packet ' + rule.protocol;
+        packet.style.left = '0px';
+        packet.style.top = (30 + Math.random() * 200) + 'px';
+        canvas.appendChild(packet);
+
+        let pos = 0;
+        const speed = 2 + Math.random() * 2;
+        const serverX = canvas.offsetWidth - 110;
+
+        const move = setInterval(() => {
+            pos += speed;
+            packet.style.left = pos + 'px';
+            if (pos >= serverX) {
+                clearInterval(move);
+                if (!rule.allowed) {
+                    packet.classList.add('blocked');
+                    fwStats.blocked++;
+                    if (rule.malicious) fwStats.malicious++;
+                } else {
+                    fwStats.allowed++;
+                    if (rule.malicious) {
+                        fwStats.malicious++;
+                        fwStats.uptime = Math.max(0, fwStats.uptime - 5);
+                    }
+                }
+                setTimeout(() => packet.remove(), 400);
+                updateFWDisplay();
+            }
+        }, 20);
+    }
+
+    function updateFWDisplay() {
+        document.getElementById('fw-allowed').textContent = fwStats.allowed;
+        document.getElementById('fw-blocked').textContent = fwStats.blocked;
+        document.getElementById('fw-malicious').textContent = fwStats.malicious;
+        document.getElementById('fw-uptime').textContent = fwStats.uptime + '%';
+        document.getElementById('fw-health').textContent = fwStats.uptime + '%';
+        document.getElementById('fw-bar').style.width = fwStats.uptime + '%';
+        document.getElementById('fw-bar').style.background = fwStats.uptime > 80 ? 'var(--accent-green)' : fwStats.uptime > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+        document.getElementById('fw-status').textContent = fwStats.uptime > 80 ? 'Protected' : fwStats.uptime > 40 ? 'At Risk' : 'Compromised';
+        document.getElementById('fw-status').style.color = fwStats.uptime > 80 ? 'var(--accent-green)' : fwStats.uptime > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+    }
+
+    function startFirewall() {
+        if (packetInterval) clearInterval(packetInterval);
+        packetInterval = setInterval(spawnPacket, 800);
+    }
+    renderFirewall();
+    startFirewall();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CRYPTOGRAPHY CIPHER SANDBOX
+    // ═══════════════════════════════════════════════════════════════════
+    let activeCipher = 'caesar';
+
+    function switchCryptoTab(tab, el) {
+        activeCipher = tab;
+        document.querySelectorAll('.crypto-tab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('caesar-shift').parentElement.style.display = tab === 'caesar' ? 'block' : 'none';
+        document.getElementById('vigenere-control').style.display = tab === 'vigenere' ? 'block' : 'none';
+        document.getElementById('aes-control').style.display = tab === 'aes' ? 'block' : 'none';
+        runCrypto();
+    }
+
+    function caesarCipher(text, shift, decrypt) {
+        const s = decrypt ? (26 - shift) % 26 : shift;
+        return text.replace(/[a-zA-Z]/g, ch => {
+            const base = ch <= 'Z' ? 65 : 97;
+            return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+        });
+    }
+
+    function vigenereCipher(text, key, decrypt) {
+        const k = key.toUpperCase().replace(/[^A-Z]/g, '');
+        if (!k) return text;
+        let ki = 0;
+        return text.replace(/[a-zA-Z]/g, ch => {
+            const base = ch <= 'Z' ? 65 : 97;
+            const shift = k.charCodeAt(ki % k.length) - 65;
+            const s = decrypt ? (26 - shift) % 26 : shift;
+            ki++;
+            return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+        });
+    }
+
+    function simulateAES256(text, bits) {
+        // Deterministic pseudo-encryption for demo
+        const seed = text.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+        const chars = '0123456789abcdef';
+        let out = '';
+        const len = bits / 4;
+        for (let i = 0; i < len; i++) {
+            out += chars[(seed + i * 7 + (i * i)) % 16];
+        }
+        return out.match(/.{1,8}/g).join(' ');
+    }
+
+    function generateHashViz(text) {
+        const canvas = document.getElementById('hash-viz');
+        canvas.innerHTML = '';
+        const hash = text.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+        const colors = ['#00ffcc', '#5fffd4', '#00e676', '#448aff', '#ffc107', '#ff4d6d'];
+        for (let i = 0; i < 64; i++) {
+            const block = document.createElement('div');
+            block.className = 'hash-block';
+            const val = Math.abs((hash + i * 13) % 256);
+            block.style.background = colors[val % colors.length];
+            block.style.opacity = 0.3 + (val / 255) * 0.7;
+            canvas.appendChild(block);
+        }
+    }
+
+    function runCrypto() {
+        const text = document.getElementById('crypto-input').value;
+        const mode = document.getElementById('crypto-mode').value;
+        const decrypt = mode === 'decrypt';
+        let output = '';
+
+        if (activeCipher === 'caesar') {
+            const shift = parseInt(document.getElementById('caesar-shift').value);
+            document.getElementById('caesar-val').textContent = 'Shift: ' + shift;
+            output = caesarCipher(text, shift, decrypt);
+        } else if (activeCipher === 'vigenere') {
+            const key = document.getElementById('vigenere-key').value || 'KEY';
+            output = vigenereCipher(text, key, decrypt);
+        } else if (activeCipher === 'aes') {
+            const bits = parseInt(document.getElementById('aes-bits').value);
+            output = '[AES-' + bits + ' ' + (decrypt ? 'DECRYPTION' : 'ENCRYPTION') + ']' + '\n';
+            output += 'Key:    ' + simulateAES256('key' + bits, bits) + '\n';
+            output += 'Nonce:  ' + simulateAES256('nonce' + text.length, 96) + '\n';
+            output += 'Cipher: ' + simulateAES256(text + bits, bits * 2);
+        }
+
+        document.getElementById('crypto-output').textContent = output;
+        generateHashViz(text + activeCipher + mode);
+    }
+    runCrypto();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SOC RANSOMWARE INCIDENT RESPONSE SIMULATOR
+    // ═══════════════════════════════════════════════════════════════════
+    const socScenarios = [
+        {
+            turn: 1, title: "Initial Detection",
+            desc: "The ransomware has been detected on workstation WS-042. Encryption is spreading to adjacent machines. What is your first action?",
+            alert: "⚠ Time-critical: Every minute of delay allows ~3 additional hosts to be encrypted.",
+            choices: [
+                { icon: "🔌", text: "Isolate infected host from network", detail: "Disconnect WS-042 immediately to stop lateral spread.", score: 25, log: "[ACTION] WS-042 isolated from network. Lateral movement halted on subnet 10.0.4.x" },
+                { icon: "📞", text: "Call management before taking action", detail: "Wait for approval from CISO before containment.", score: -10, log: "[DELAY] Awaiting management approval. 4 additional hosts encrypted during wait time." },
+                { icon: "🔍", text: "Begin forensic analysis first", detail: "Collect disk images and memory dumps before containment.", score: 5, log: "[ANALYSIS] Forensic collection started on WS-042. Encryption continues on 3 adjacent hosts." },
+                { icon: "🔄", text: "Restart the infected machine", detail: "Attempt to clear the infection with a reboot.", score: -20, log: "[ERROR] Restart did not clear encryption. Ransomware persisted via registry run keys. 6 new hosts infected." }
+            ]
+        },
+        {
+            turn: 2, title: "Lateral Movement Containment",
+            desc: "The malware is moving via SMB shares and RDP. 15 hosts now show encryption activity. How do you contain the spread?",
+            alert: "⚠ Critical: Domain controller DC-01 is showing anomalous login attempts.",
+            choices: [
+                { icon: "🚫", text: "Disable all SMB and RDP across the network", detail: "Block ports 445 and 3389 network-wide immediately.", score: 30, log: "[CONTAINMENT] SMB/RDP disabled globally. Lateral movement vector neutralized." },
+                { icon: "🔐", text: "Revoke all active user sessions and API tokens", detail: "Force password resets and invalidate OAuth tokens.", score: 20, log: "[IDENTITY] All sessions revoked. API tokens rotated. Attackers lose authenticated access." },
+                { icon: "📧", text: "Send warning email to all employees", detail: "Alert staff to shut down their machines manually.", score: 5, log: "[COMM] Warning sent. 40% of users powered off within 10 minutes. Partial containment." },
+                { icon: "🛡️", text: "Deploy antivirus signature update", detail: "Push new AV definitions to all endpoints.", score: 10, log: "[DEFENSE] AV signatures updated. 60% of endpoints protected. Encryption slowed but not stopped." }
+            ]
+        },
+        {
+            turn: 3, title: "Data Protection",
+            desc: "The attackers have deployed a data exfiltration module. Sensitive customer PII may be leaving the network. What is your priority?",
+            alert: "⚠ DLP alerts: 2.3GB of data transferred to unknown IP 185.220.101.x in the last hour.",
+            choices: [
+                { icon: "💾", text: "Initiate air-gapped backup restoration", detail: "Begin restoring from immutable offline backups.", score: 25, log: "[BACKUP] Air-gapped restore initiated. Immutable backups verified clean. Recovery ETA: 4 hours." },
+                { icon: "🌐", text: "Block outbound traffic to suspicious IPs", detail: "Update firewall rules to drop all traffic to 185.220.101.x/24.", score: 20, log: "[NETWORK] Outbound C2 traffic blocked at perimeter. Data exfiltration stopped." },
+                { icon: "📋", text: "Document the incident for compliance", detail: "Start drafting the mandatory breach notification.", score: 5, log: "[COMPLIANCE] Documentation started. Data exfiltration continues during paperwork." },
+                { icon: "💰", text: "Evaluate ransom payment feasibility", detail: "Assess whether paying the ransom is viable.", score: -15, log: "[RISK] Ransom evaluation delayed response. Attackers exfiltrated additional 800MB customer data." }
+            ]
+        },
+        {
+            turn: 4, title: "Eradication",
+            desc: "Containment is holding. Now you must eradicate the threat from all systems. What is your approach?",
+            alert: "⚠ Rootkit detected on 3 domain controllers. Standard AV cannot remove it.",
+            choices: [
+                { icon: "🧹", text: "Reimage all infected machines from gold image", detail: "Wipe and rebuild every compromised endpoint.", score: 30, log: "[ERADICATION] 42 machines reimaged from verified gold image. Rootkit eliminated." },
+                { icon: "🔧", text: "Attempt manual rootkit removal", detail: "Use specialized tools to clean infected systems.", score: 10, log: "[MANUAL] Rootkit removal attempted. 70% success rate. 12 machines require reimaging anyway." },
+                { icon: "📊", text: "Run full network vulnerability scan", detail: "Identify all unpatched systems before rebuilding.", score: 15, log: "[SCAN] 8 critical vulnerabilities found. Patching prioritized during rebuild process." },
+                { icon: "⏳", text: "Wait for vendor security patch", detail: "Delay eradication until official patch is released.", score: -15, log: "[DELAY] Waiting for patch. Rootkit established persistence on 6 additional servers." }
+            ]
+        },
+        {
+            turn: 5, title: "Recovery & Hardening",
+            desc: "The threat is eradicated. Systems are being restored. What final hardening measures do you implement?",
+            alert: "⚠ Post-incident review required within 72 hours per ISO 27001.",
+            choices: [
+                { icon: "🛡️", text: "Deploy EDR on all endpoints + MFA everywhere", detail: "Comprehensive endpoint protection and identity hardening.", score: 25, log: "[HARDENING] EDR deployed to 100% endpoints. MFA enforced for all users and admin accounts." },
+                { icon: "📚", text: "Conduct company-wide phishing simulation", detail: "Train employees with realistic phishing exercises.", score: 15, log: "[TRAINING] Phishing simulation launched. 23% click rate identified for targeted training." },
+                { icon: "📋", text: "Update incident response playbooks", detail: "Document lessons learned and revise procedures.", score: 10, log: "[PROCESS] Playbooks updated. Mean response time improved by 40% in follow-up drill." },
+                { icon: "✅", text: "Declare incident closed and return to normal", detail: "Resume normal operations immediately.", score: 0, log: "[CLOSURE] Incident declared closed. No additional hardening implemented." }
+            ]
+        }
+    ];
+
+    let socState = { turn: 0, score: 0, logs: [], choicesMade: [] };
+
+    function renderSOCTurn() {
+        const scenario = socScenarios[socState.turn];
+        if (!scenario) return showSOCReport();
+        document.getElementById('soc-turn').textContent = 'Turn ' + (socState.turn + 1) + ' / ' + socScenarios.length;
+        document.getElementById('soc-scenario').innerHTML = `
+            <h4>🎯 Decision Point — Turn ${scenario.turn}: ${scenario.title}</h4>
+            <p>${scenario.desc}</p>
+            <div class="alert-box">${scenario.alert}</div>
+            <div class="soc-choices" id="soc-choices"></div>
+        `;
+        const choicesDiv = document.getElementById('soc-choices');
+        scenario.choices.forEach((choice, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'soc-choice';
+            btn.innerHTML = `<span class="choice-icon">${choice.icon}</span><div class="choice-text"><strong>${choice.text}</strong>${choice.detail}</div>`;
+            btn.onclick = () => makeSOCChoice(idx);
+            choicesDiv.appendChild(btn);
+        });
+    }
+
+    function makeSOCChoice(choiceIdx) {
+        const scenario = socScenarios[socState.turn];
+        const choice = scenario.choices[choiceIdx];
+        socState.score += choice.score;
+        socState.choicesMade.push(choice);
+        socState.logs.push(choice.log);
+        updateSOCLog();
+        updateSOCScore();
+        socState.turn++;
+        if (socState.turn >= socScenarios.length) {
+            showSOCReport();
+        } else {
+            renderSOCTurn();
+        }
+    }
+
+    function updateSOCLog() {
+        const logDiv = document.getElementById('soc-log');
+        const baseTime = new Date('2026-08-23T22:14:33');
+        logDiv.innerHTML = socState.logs.map((l, i) => {
+            const t = new Date(baseTime.getTime() + i * 120000);
+            const time = t.toLocaleTimeString('en-US', { hour12: false });
+            let type = 'log-info';
+            if (l.includes('[ERROR]') || l.includes('[DELAY]') || l.includes('[RISK]')) type = 'log-err';
+            else if (l.includes('[ACTION]') || l.includes('[CONTAINMENT]') || l.includes('[ERADICATION]') || l.includes('[HARDENING]')) type = 'log-ok';
+            else if (l.includes('[WARN]') || l.includes('[ANALYSIS]')) type = 'log-warn';
+            return `<span class="log-time">[${time}]</span> <span class="${type}">${l}</span>`;
+        }).join('<br>');
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function updateSOCScore() {
+        const maxScore = socScenarios.length * 30;
+        const pct = Math.max(0, Math.min(100, Math.round((socState.score / maxScore) * 100)));
+        document.getElementById('soc-score').textContent = pct + '%';
+        document.getElementById('soc-bar').style.width = pct + '%';
+        document.getElementById('soc-bar').style.background = pct > 70 ? 'var(--accent-green)' : pct > 40 ? 'var(--accent-amber)' : 'var(--accent-red)';
+    }
+
+    function showSOCReport() {
+        document.getElementById('soc-game-area').style.display = 'none';
+        document.getElementById('soc-report').style.display = 'block';
+        const maxScore = socScenarios.length * 30;
+        const pct = Math.max(0, Math.min(100, Math.round((socState.score / maxScore) * 100)));
+        document.getElementById('report-score').textContent = pct + '%';
+        const gradeEl = document.getElementById('report-grade');
+        let grade = 'F', gradeClass = 'grade-c';
+        if (pct >= 90) { grade = 'S'; gradeClass = 'grade-s'; }
+        else if (pct >= 75) { grade = 'A'; gradeClass = 'grade-a'; }
+        else if (pct >= 50) { grade = 'B'; gradeClass = 'grade-b'; }
+        gradeEl.textContent = 'Grade: ' + grade;
+        gradeEl.className = 'report-grade ' + gradeClass;
+        let reportText = '';
+        if (pct >= 90) reportText = "Outstanding response! You contained the outbreak rapidly, protected critical data, and implemented comprehensive hardening. The organization is now significantly more resilient.";
+        else if (pct >= 75) reportText = "Strong response. You effectively contained the threat and minimized damage. A few decisions could have been faster, but overall the network was saved.";
+        else if (pct >= 50) reportText = "Adequate response. The outbreak was eventually contained, but significant data loss occurred. Review the delayed decisions that allowed spread.";
+        else reportText = "Critical failure. The ransomware spread widely due to delayed containment. Significant data was encrypted and exfiltrated. Immediate playbook revision required.";
+        document.getElementById('report-text').textContent = reportText;
+    }
+
+    function resetSOC() {
+        socState = { turn: 0, score: 0, logs: [], choicesMade: [] };
+        document.getElementById('soc-game-area').style.display = 'block';
+        document.getElementById('soc-report').style.display = 'none';
+        document.getElementById('soc-log').innerHTML = `
+            <span class="log-time">[22:14:33]</span> <span class="log-warn">ALERT:</span> EDR detected suspicious file encryption on WS-042<br>
+            <span class="log-time">[22:14:35]</span> <span class="log-err">CRITICAL:</span> Ransomware strain identified as LockBit 3.0 variant<br>
+            <span class="log-time">[22:14:38]</span> <span class="log-info">INFO:</span> 12 endpoints showing encryption activity — lateral movement suspected
+        `;
+        updateSOCScore();
+        renderSOCTurn();
+    }
+    renderSOCTurn();
+
     </script>
 </body>
 </html>
